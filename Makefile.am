@@ -2,7 +2,7 @@
 include $(top_srcdir)/Makefile.decl
 
 SRC_SUBDIRS = gdk gtk modules demos tests perf
-SUBDIRS = po po-properties $(SRC_SUBDIRS) docs m4macros build
+SUBDIRS = po po-properties $(SRC_SUBDIRS) m4macros build
 
 # require automake 1.4
 AUTOMAKE_OPTIONS = 1.7
@@ -243,7 +243,7 @@ sanity:
 snapshot:
 	$(MAKE) dist distdir=$(PACKAGE)-snap`date +"%Y%m%d"`
 
-DISTCHECK_CONFIGURE_FLAGS = --enable-gtk-doc --enable-man --disable-rebuilds --enable-introspection
+DISTCHECK_CONFIGURE_FLAGS = --disable-rebuilds --enable-introspection
 
 GITIGNOREFILES = \
 	po-properties/Makefile.in.in \
