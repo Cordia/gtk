@@ -21,18 +21,12 @@
 #ifndef __GTK_FILE_CHOOSER_PRIVATE_H__
 #define __GTK_FILE_CHOOSER_PRIVATE_H__
 
-#include "gtkfilechooser.h"
+#include "gtk.h"
 #include "gtkfilesystem.h"
 #include "gtkfilesystemmodel.h"
-#include "gtkliststore.h"
-#include "gtkrecentmanager.h"
 #include "gtksearchengine.h"
 #include "gtkquery.h"
 #include "gtksizegroup.h"
-#include "gtktreemodelsort.h"
-#include "gtktreestore.h"
-#include "gtktreeview.h"
-#include "gtkvbox.h"
 
 G_BEGIN_DECLS
 

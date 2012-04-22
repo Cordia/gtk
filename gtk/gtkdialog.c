@@ -29,12 +29,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include "config.h"
+#ifdef MAEMO_CHANGES
+#include "gtkalignment.h"
+#endif /* MAEMO_CHANGES */
 #include "gtkbutton.h"
 #include "gtkdialog.h"
 #include "gtkhbbox.h"
+#include "gtkvbbox.h"
 #include "gtklabel.h"
 #include "gtkhseparator.h"
+#include "gtkvseparator.h"
 #include "gtkmarshalers.h"
+#include "gtkhbox.h"
 #include "gtkvbox.h"
 #include "gdkkeysyms.h"
 #include "gtkmain.h"
@@ -48,6 +54,10 @@
 
 typedef struct {
   guint ignore_separator : 1;
+#ifdef MAEMO_CHANGES
+  GtkWidget *hbox;
+  GtkWidget *alignment;
+#endif /* MAEMO_CHANGES */
 } GtkDialogPrivate;
 
 typedef struct _ResponseData ResponseData;
@@ -75,6 +85,12 @@ static void      gtk_dialog_get_property         (GObject      *object,
                                                   GParamSpec   *pspec);
 static void      gtk_dialog_style_set            (GtkWidget    *widget,
                                                   GtkStyle     *prev_style);
+#ifdef MAEMO_CHANGES
+static void      gtk_dialog_size_request         (GtkWidget      *widget,
+                                                  GtkRequisition *requisition);
+static void      gtk_dialog_realize              (GtkWidget    *widget);
+static void      gtk_dialog_unrealize            (GtkWidget    *widget);
+#endif
 static void      gtk_dialog_map                  (GtkWidget    *widget);
 
 static void      gtk_dialog_close                (GtkDialog    *dialog);
@@ -101,6 +117,13 @@ static void      gtk_dialog_buildable_custom_finished    (GtkBuildable  *buildab
 
 enum {
   PROP_0,
+#ifdef MAEMO_CHANGES
+  PROP_TOP_PADDING,
+  PROP_BOTTOM_PADDING,
+  PROP_LEFT_PADDING,
+  PROP_RIGHT_PADDING,
+  PROP_INNER_SPACING,
+#endif /* MAEMO_CHANGES */
   PROP_HAS_SEPARATOR
 };
 
@@ -131,6 +154,11 @@ gtk_dialog_class_init (GtkDialogClass *class)
   
   widget_class->map = gtk_dialog_map;
   widget_class->style_set = gtk_dialog_style_set;
+#ifdef MAEMO_CHANGES
+  widget_class->size_request = gtk_dialog_size_request;
+  widget_class->realize = gtk_dialog_realize;
+  widget_class->unrealize = gtk_dialog_unrealize;
+#endif
 
   class->close = gtk_dialog_close;
   
@@ -150,6 +178,58 @@ gtk_dialog_class_init (GtkDialogClass *class)
 							 P_("The dialog has a separator bar above its buttons"),
                                                          FALSE,
                                                          GTK_PARAM_READWRITE | G_PARAM_DEPRECATED));
+
+#ifdef MAEMO_CHANGES
+  g_object_class_install_property (gobject_class,
+                                   PROP_TOP_PADDING,
+                                   g_param_spec_uint ("top-padding",
+                                                      P_("Top Padding"),
+                                                      P_("The padding to insert at the top of the dialog."),
+                                                      0,
+                                                      G_MAXUINT,
+                                                      0,
+                                                      GTK_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_BOTTOM_PADDING,
+                                   g_param_spec_uint ("bottom-padding",
+                                                      P_("Bottom Padding"),
+                                                      P_("The padding to insert at the bottom of the dialog."),
+                                                      0,
+                                                      G_MAXUINT,
+                                                      8,
+                                                      GTK_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_LEFT_PADDING,
+                                   g_param_spec_uint ("left-padding",
+                                                      P_("Left Padding"),
+                                                      P_("The padding to insert at the left of the dialog."),
+                                                      0,
+                                                      G_MAXUINT,
+                                                      16,
+                                                      GTK_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_RIGHT_PADDING,
+                                   g_param_spec_uint ("right-padding",
+                                                      P_("Right Padding"),
+                                                      P_("The padding to insert at the right of the dialog."),
+                                                      0,
+                                                      G_MAXUINT,
+                                                      16,
+                                                      GTK_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_INNER_SPACING,
+                                   g_param_spec_int ("inner-spacing",
+                                                      P_("Inner Spacing"),
+                                                      P_("The spacing between content area and action area."),
+                                                      0,
+                                                      G_MAXINT,
+                                                      16,
+                                                      GTK_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+#endif /* MAEMO_CHANGES */
 
   /**
    * GtkDialog::response:
@@ -246,6 +326,15 @@ update_spacings (GtkDialog *dialog)
   gint content_area_spacing;
   gint button_spacing;
   gint action_area_border;
+#ifdef MAEMO_CHANGES
+  GtkDialogPrivate *priv;
+  guint top_padding;
+  guint bottom_padding;
+  guint left_padding;
+  guint right_padding;
+
+  priv = GET_PRIVATE (dialog);
+#endif /* MAEMO_CHANGES */
 
   gtk_widget_style_get (GTK_WIDGET (dialog),
                         "content-area-border", &content_area_border,
@@ -254,6 +343,17 @@ update_spacings (GtkDialog *dialog)
                         "action-area-border", &action_area_border,
                         NULL);
 
+#ifdef MAEMO_CHANGES
+  gtk_dialog_get_padding (dialog, &top_padding, &bottom_padding, &left_padding, &right_padding);
+
+  gtk_alignment_set_padding (GTK_ALIGNMENT (priv->alignment),
+                             top_padding,
+                             bottom_padding,
+                             left_padding,
+                             right_padding);
+
+  gtk_box_set_spacing (GTK_BOX (priv->hbox), gtk_dialog_get_inner_spacing (dialog));
+#endif /* MAEMO_CHANGES */
   gtk_container_set_border_width (GTK_CONTAINER (dialog->vbox),
                                   content_area_border);
   if (!_gtk_box_get_spacing_set (GTK_BOX (dialog->vbox)))
@@ -275,6 +375,11 @@ gtk_dialog_init (GtkDialog *dialog)
   priv = GET_PRIVATE (dialog);
   priv->ignore_separator = FALSE;
 
+#ifdef MAEMO_CHANGES
+  priv->hbox = gtk_hbox_new (FALSE, 0);
+  priv->alignment = gtk_alignment_new (0.0, 0.0, 1.0, 1.0);
+#endif /* MAEMO_CHANGES */
+
   /* To avoid breaking old code that prevents destroy on delete event
    * by connecting a handler, we have to have the FIRST signal
    * connection on the dialog.
@@ -286,19 +391,38 @@ gtk_dialog_init (GtkDialog *dialog)
 
   dialog->vbox = gtk_vbox_new (FALSE, 0);
 
+#ifdef MAEMO_CHANGES
+  gtk_container_add (GTK_CONTAINER (priv->alignment), priv->hbox);
+  gtk_container_add (GTK_CONTAINER (dialog), priv->alignment);
+  gtk_widget_show (priv->hbox);
+  gtk_widget_show (priv->alignment);
+  gtk_widget_show (dialog->vbox);
+
+  dialog->action_area = gtk_vbutton_box_new ();
+  gtk_widget_set_name (dialog->action_area, "hildon-dialog-action-area");
+#else
   gtk_container_add (GTK_CONTAINER (dialog), dialog->vbox);
   gtk_widget_show (dialog->vbox);
 
   dialog->action_area = gtk_hbutton_box_new ();
+#endif /* MAEMO_CHANGES */
 
   gtk_button_box_set_layout (GTK_BUTTON_BOX (dialog->action_area),
                              GTK_BUTTONBOX_END);
 
+#ifdef MAEMO_CHANGES
+  gtk_box_pack_end (GTK_BOX (priv->hbox), dialog->action_area,
+                    FALSE, TRUE, 0);
+  gtk_widget_show (dialog->action_area);
+
+  gtk_box_pack_end (GTK_BOX (priv->hbox), dialog->vbox, TRUE, TRUE, 0);
+#else
   gtk_box_pack_end (GTK_BOX (dialog->vbox), dialog->action_area,
                     FALSE, TRUE, 0);
   gtk_widget_show (dialog->action_area);
 
   dialog->separator = NULL;
+#endif /* MAEMO_CHANGES */
 
   gtk_window_set_type_hint (GTK_WINDOW (dialog),
                             GDK_WINDOW_TYPE_HINT_DIALOG);
@@ -338,14 +462,57 @@ gtk_dialog_set_property (GObject      *object,
                          GParamSpec   *pspec)
 {
   GtkDialog *dialog;
+#ifdef MAEMO_CHANGES
+  guint padding_top;
+  guint padding_bottom;
+  guint padding_left;
+  guint padding_right;
+#endif
   
   dialog = GTK_DIALOG (object);
+
+#ifdef MAEMO_CHANGES
+  gtk_dialog_get_padding (dialog, &padding_top, &padding_bottom, &padding_left, &padding_right);
+#endif
   
   switch (prop_id)
     {
     case PROP_HAS_SEPARATOR:
       gtk_dialog_set_has_separator (dialog, g_value_get_boolean (value));
       break;
+#ifdef MAEMO_CHANGES
+    case PROP_TOP_PADDING:
+      gtk_dialog_set_padding (dialog,
+                              g_value_get_uint (value),
+                              padding_bottom,
+                              padding_left,
+                              padding_right);
+      break;
+    case PROP_BOTTOM_PADDING:
+      gtk_dialog_set_padding (dialog,
+                              padding_top,
+                              g_value_get_uint (value),
+                              padding_left,
+                              padding_right);
+      break;
+    case PROP_LEFT_PADDING:
+      gtk_dialog_set_padding (dialog,
+                              padding_top,
+                              padding_bottom,
+                              g_value_get_uint (value),
+                              padding_right);
+      break;
+    case PROP_RIGHT_PADDING:
+      gtk_dialog_set_padding (dialog,
+                              padding_top,
+                              padding_bottom,
+                              padding_left,
+                              g_value_get_uint (value));
+      break;
+    case PROP_INNER_SPACING:
+      gtk_dialog_set_inner_spacing (dialog, g_value_get_int (value));
+      break;
+#endif /* MAEMO_CHANGES */
 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -360,14 +527,42 @@ gtk_dialog_get_property (GObject     *object,
                          GParamSpec  *pspec)
 {
   GtkDialog *dialog;
+#ifdef MAEMO_CHANGES
+  guint padding_top;
+  guint padding_bottom;
+  guint padding_left;
+  guint padding_right;
+#endif
   
   dialog = GTK_DIALOG (object);
-  
+
+#ifdef MAEMO_CHANGES
+  gtk_dialog_get_padding (dialog, &padding_top, &padding_bottom, &padding_left, &padding_right);
+#endif
+
   switch (prop_id)
     {
     case PROP_HAS_SEPARATOR:
       g_value_set_boolean (value, dialog->separator != NULL);
       break;
+
+#ifdef MAEMO_CHANGES
+    case PROP_TOP_PADDING:
+      g_value_set_uint (value, padding_top);
+      break;
+    case PROP_BOTTOM_PADDING:
+      g_value_set_uint (value, padding_bottom);
+      break;
+    case PROP_LEFT_PADDING:
+      g_value_set_uint (value, padding_left);
+      break;
+    case PROP_RIGHT_PADDING:
+      g_value_set_uint (value, padding_right);
+      break;
+    case PROP_INNER_SPACING:
+      g_value_set_int (value, gtk_dialog_get_inner_spacing (dialog));
+      break;
+#endif /* MAEMO_CHANGES */
 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -452,6 +647,124 @@ gtk_dialog_style_set (GtkWidget *widget,
 {
   update_spacings (GTK_DIALOG (widget));
 }
+
+#ifdef MAEMO_CHANGES
+static G_GNUC_CONST GQuark
+auto_resize_quark (void)
+{
+  static GQuark quark = 0;
+
+  if (G_UNLIKELY (quark == 0))
+    quark = g_quark_from_static_string ("gtk-dialog-widget-auto-resize");
+
+  return quark;
+}
+
+static void
+gtk_dialog_resize_button (GtkWidget *button,
+                          gpointer  *data)
+{
+  /* Only resize widgets added with gtk_dialog_add_button () */
+  if (g_object_get_qdata (G_OBJECT (button), auto_resize_quark ()))
+    {
+      gint width = GPOINTER_TO_INT (data);
+      g_object_set (button, "width-request", width, NULL);
+    }
+}
+
+static void
+gtk_dialog_screen_size_changed_cb (GdkScreen *screen,
+                                   GtkDialog *dialog)
+{
+  GtkDialogPrivate *priv = GET_PRIVATE (dialog);
+  GtkWidget *parent = gtk_widget_get_parent (dialog->action_area);
+  gint width = gdk_screen_get_width (screen);
+  gboolean portrait = width < gdk_screen_get_height (screen);
+  gint button_width, padding;
+
+  g_object_ref (dialog->action_area);
+  gtk_container_remove (GTK_CONTAINER (parent), dialog->action_area);
+
+  if (portrait)
+    {
+      parent = dialog->vbox;
+      button_width = width - 16 /* HILDON_MARGIN_DOUBLE */ * 2;
+      padding = 16 /* HILDON_MARGIN_DOUBLE */;
+    }
+  else
+    {
+      parent = gtk_widget_get_parent (dialog->vbox);
+      button_width = 174 /* HILDON_DIALOG_BUTTON_WIDTH */;
+      padding = 0;
+    }
+
+  gtk_box_pack_end (GTK_BOX (parent), dialog->action_area, FALSE, TRUE, padding);
+  gtk_box_reorder_child (GTK_BOX (parent), dialog->action_area, 0);
+  gtk_container_foreach (GTK_CONTAINER (dialog->action_area),
+                         (GtkCallback) gtk_dialog_resize_button,
+                         GINT_TO_POINTER (button_width));
+  g_object_unref (dialog->action_area);
+
+  if (portrait)
+    gtk_box_set_spacing (GTK_BOX (priv->hbox), padding);
+  else
+    update_spacings (dialog);
+
+  gtk_window_resize (GTK_WINDOW (dialog), 1, 1);
+}
+
+static void
+gtk_dialog_realize (GtkWidget *widget)
+{
+  GdkScreen *screen = gtk_widget_get_screen (widget);
+
+  GTK_WIDGET_CLASS (gtk_dialog_parent_class)->realize (widget);
+
+  if (gdk_screen_get_width (screen) < gdk_screen_get_height (screen))
+    gtk_dialog_screen_size_changed_cb (screen, GTK_DIALOG (widget));
+  g_signal_connect (screen, "size-changed",
+    G_CALLBACK (gtk_dialog_screen_size_changed_cb), widget);
+}
+
+static void
+gtk_dialog_unrealize (GtkWidget *widget)
+{
+  GdkScreen *screen = gtk_widget_get_screen (widget);
+
+  g_signal_handlers_disconnect_by_func (screen,
+    gtk_dialog_screen_size_changed_cb, widget);
+
+  GTK_WIDGET_CLASS (gtk_dialog_parent_class)->unrealize (widget);
+}
+
+static void
+gtk_dialog_size_request (GtkWidget      *widget,
+			 GtkRequisition *requisition)
+{
+  GtkWindow *window;
+  GdkWindowTypeHint type_hint;
+
+  GTK_WIDGET_CLASS (gtk_dialog_parent_class)->size_request (widget, requisition);
+
+  window = GTK_WINDOW (widget);
+  type_hint = gtk_window_get_type_hint (window);
+
+  if (window->type == GTK_WINDOW_TOPLEVEL &&
+      (type_hint == GDK_WINDOW_TYPE_HINT_NORMAL ||
+       type_hint == GDK_WINDOW_TYPE_HINT_DIALOG))
+    {
+      gint width;
+
+      gtk_widget_get_size_request (widget, &width, NULL);
+
+      if (width == -1)
+        {
+          GdkScreen *screen = gtk_widget_get_screen (widget);
+          requisition->width = gdk_screen_get_width (screen);
+        }
+    }
+}
+#endif
 
 static GtkWidget *
 dialog_find_button (GtkDialog *dialog,
@@ -683,6 +996,10 @@ gtk_dialog_add_action_widget (GtkDialog *dialog,
   if (response_id == GTK_RESPONSE_HELP)
     gtk_button_box_set_child_secondary (GTK_BUTTON_BOX (dialog->action_area), child, TRUE);
 }
+#ifdef MAEMO_CHANGES
+  /* Buttons on a HildonDialog have fixed size */
+  #define HILDON_DIALOG_BUTTON_WIDTH 174
+#endif
 
 /**
  * gtk_dialog_add_button:
@@ -712,7 +1029,23 @@ gtk_dialog_add_button (GtkDialog   *dialog,
 
   gtk_widget_set_can_default (button, TRUE);
   
+#ifdef MAEMO_CHANGES
+  if (response_id != GTK_RESPONSE_CANCEL &&
+      response_id != GTK_RESPONSE_REJECT &&
+      response_id != GTK_RESPONSE_CLOSE)
+    {
+      gtk_widget_show (button);
+    }
+    else
+    {
+      gtk_widget_set_no_show_all (button, TRUE);
+    }
+    hildon_gtk_widget_set_theme_size (button, HILDON_SIZE_AUTO_WIDTH | HILDON_SIZE_FINGER_HEIGHT);
+    g_object_set (button, "width-request", HILDON_DIALOG_BUTTON_WIDTH, NULL);
+    g_object_set_qdata (G_OBJECT (button), auto_resize_quark (), GINT_TO_POINTER (TRUE));
+#else
   gtk_widget_show (button);
+#endif /* MAEMO_CHANGES */
   
   gtk_dialog_add_action_widget (dialog,
                                 button,
@@ -877,6 +1210,15 @@ gtk_dialog_set_has_separator (GtkDialog *dialog,
   
   if (setting && dialog->separator == NULL)
     {
+#ifdef MAEMO_CHANGES
+      dialog->separator = gtk_vseparator_new ();
+      gtk_box_pack_end (GTK_BOX (priv->hbox), dialog->separator, FALSE, TRUE, 0);
+
+      /* The app programmer could screw this up, but, their own fault.
+       * Moves the separator just above the action area.
+       */
+      gtk_box_reorder_child (GTK_BOX (priv->hbox), dialog->separator, 1);
+#else
       dialog->separator = gtk_hseparator_new ();
       gtk_box_pack_end (GTK_BOX (dialog->vbox), dialog->separator, FALSE, TRUE, 0);
 
@@ -884,6 +1226,7 @@ gtk_dialog_set_has_separator (GtkDialog *dialog,
        * Moves the separator just above the action area.
        */
       gtk_box_reorder_child (GTK_BOX (dialog->vbox), dialog->separator, 1);
+#endif /* MAEMO_CHANGES */
       gtk_widget_show (dialog->separator);
     }
   else if (!setting && dialog->separator != NULL)
@@ -912,6 +1255,99 @@ gtk_dialog_get_has_separator (GtkDialog *dialog)
 
   return dialog->separator != NULL;
 }
+
+#ifdef MAEMO_CHANGES
+/**
+ * gtk_dialog_set_padding:
+ * @dialog: a #GtkDialog
+ * @top_padding: Padding to add at the top of the dialog.
+ * @bottom_padding: Padding to add at the bottom of the dialog.
+ * @left_padding: Padding to add at the left of the dialog.
+ * @right_padding: Padding to add at the right of the dialog.
+ *
+ * Sets additional padding around the dialog.
+ *
+ * Since: maemo 5.0
+ **/
+void
+gtk_dialog_set_padding (GtkDialog *dialog,
+                        guint      top_padding,
+                        guint      bottom_padding,
+                        guint      left_padding,
+                        guint      right_padding)
+{
+  GtkDialogPrivate *priv;
+
+  g_return_if_fail (GTK_IS_DIALOG (dialog));
+  
+  priv = GET_PRIVATE (dialog);
+  
+  gtk_alignment_set_padding (GTK_ALIGNMENT (priv->alignment), top_padding, bottom_padding, left_padding, right_padding);
+}
+
+/**
+ * gtk_dialog_get_padding:
+ * @dialog: a #GtkDialog
+ * @padding_top: location to store the padding for the top of the dialog, or %NULL
+ * @padding_bottom: location to store the padding for the bottom of the dialog, or %NULL
+ * @padding_left: location to store the padding for the left of the dialog, or %NULL
+ * @padding_right: location to store the padding for the right of the dialog, or %NULL
+ *
+ * Gets the padding on the different sides of the dialog.
+ *
+ * Since: maemo 5.0
+ **/
+void
+gtk_dialog_get_padding (GtkDialog *dialog,
+                        guint     *top_padding,
+                        guint     *bottom_padding,
+                        guint     *left_padding,
+                        guint     *right_padding)
+{
+  GtkDialogPrivate *priv;
+
+  g_return_if_fail (GTK_IS_DIALOG (dialog));
+
+  priv = GET_PRIVATE (dialog);
+
+  guint t, b, l, r;
+
+  gtk_alignment_get_padding (GTK_ALIGNMENT (priv->alignment), &t, &b, &l, &r);
+
+  if (top_padding)
+    *top_padding = t;
+  if (bottom_padding)
+    *bottom_padding = b;
+  if (left_padding)
+    *left_padding = l;
+  if (right_padding)
+    *right_padding = r;
+}
+
+void
+gtk_dialog_set_inner_spacing (GtkDialog *dialog,
+                              guint      inner_spacing)
+{
+  GtkDialogPrivate *priv;
+  g_return_if_fail (GTK_IS_DIALOG (dialog));
+
+  priv = GET_PRIVATE (dialog);
+
+  gtk_box_set_spacing (GTK_BOX (priv->hbox), inner_spacing);
+}
+
+guint
+gtk_dialog_get_inner_spacing (GtkDialog *dialog)
+{
+  GtkDialogPrivate *priv;
+  g_return_val_if_fail (GTK_IS_DIALOG (dialog), 0);
+
+  priv = GET_PRIVATE (dialog);
+
+  return gtk_box_get_spacing (GTK_BOX (priv->hbox));
+}
+
+#endif /* MAEMO_CHANGES */
 
 /**
  * gtk_dialog_response:

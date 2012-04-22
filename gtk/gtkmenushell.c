@@ -44,7 +44,10 @@
 #include "gtkintl.h"
 #include "gtkalias.h"
 
-#define MENU_SHELL_TIMEOUT   500
+#if defined(MAEMO_CHANGES) && defined(HAVE_XTST)
+#include <X11/extensions/XTest.h>
+#include "x11/gdkx.h"
+#endif
 
 #define PACK_DIRECTION(m)                                 \
    (GTK_IS_MENU_BAR (m)                                   \
@@ -206,6 +209,27 @@ static guint menu_shell_signals[LAST_SIGNAL] = { 0 };
 
 G_DEFINE_ABSTRACT_TYPE (GtkMenuShell, gtk_menu_shell, GTK_TYPE_CONTAINER)
 
+#ifdef MAEMO_CHANGES
+static void
+gtk_menu_shell_insensitive_press (GtkWidget *widget)
+{
+  GdkEvent *event;
+
+  g_return_if_fail (GTK_IS_MENU_SHELL (widget));
+
+  event = gtk_get_current_event ();
+  if (event)
+    {
+      GtkWidget *event_widget;
+
+      event_widget = gtk_get_event_widget (event);
+      if (event_widget != widget)
+	gtk_widget_insensitive_press (event_widget);
+      gdk_event_free (event);
+    }
+}
+#endif /* MAEMO_CHANGES */
+
 static void
 gtk_menu_shell_class_init (GtkMenuShellClass *klass)
 {
@@ -231,6 +255,14 @@ gtk_menu_shell_class_init (GtkMenuShellClass *klass)
   widget_class->enter_notify_event = gtk_menu_shell_enter_notify;
   widget_class->leave_notify_event = gtk_menu_shell_leave_notify;
   widget_class->screen_changed = gtk_menu_shell_screen_changed;
+
+#ifdef MAEMO_CHANGES
+  g_signal_override_class_closure (g_signal_lookup ("insensitive-press",
+                                                    GTK_TYPE_WIDGET),
+                                   GTK_TYPE_MENU_SHELL,
+                                   g_cclosure_new (G_CALLBACK (gtk_menu_shell_insensitive_press),
+                                                   NULL, NULL));
+#endif /* MAEMO_CHANGES */
 
   container_class->add = gtk_menu_shell_add;
   container_class->remove = gtk_menu_shell_remove;
@@ -380,6 +412,14 @@ gtk_menu_shell_class_init (GtkMenuShellClass *klass)
 							 P_("A boolean that determines whether the menu grabs the keyboard focus"),
 							 TRUE,
 							 GTK_PARAM_READWRITE));
+
+  gtk_settings_install_property (g_param_spec_int ("gtk-menu-popup-click-time",
+                                                   P_("Popup click time"),
+						   P_("Maximum time allowed (in milliseconds) between button press and release for them to be considered part of a popup action instead of a (menu item) select action. 0 always considers the corresponding button release part of the popup click and always keeps the menu open unless an item was activated."),
+						   0,
+						   G_MAXINT,
+						   500,
+						   GTK_PARAM_READWRITE));
 
   g_type_class_add_private (object_class, sizeof (GtkMenuShellPrivate));
 }
@@ -554,6 +594,62 @@ _gtk_menu_shell_activate (GtkMenuShell *menu_shell)
     }
 }
 
+#if defined(MAEMO_CHANGES) && defined(HAVE_XTST)
+
+static void
+_gtk_menu_shell_fake_button_events (GtkWidget *widget,
+                                    guint button,
+                                    gboolean send_press,
+                                    gboolean send_release)
+{
+  GdkDisplay *display;
+  gint x, y;
+  GtkWidget *attached_widget;
+
+  display = gtk_widget_get_display (widget);
+
+  /* If we are a menu get the widget we are attached to. If we are a 
+     menubar we are ourselves the attach widget in this case. If both
+     checks fail, just exit */
+
+  if (GTK_IS_MENU (widget))
+    attached_widget = gtk_menu_get_attach_widget (GTK_MENU (widget));
+  else if (GTK_IS_MENU_BAR (widget))
+    attached_widget = widget;
+  else
+    return;
+
+  /* Blacklist GtkWindow to disable this functionality in HildonWindow,
+     as there is no reliable way of detecting the click on the window
+     decoration */
+  if (attached_widget && !GTK_IS_WINDOW (attached_widget))
+    {
+      /* Do not generate the events if the click is inside our
+         attach widget. This allows the user to close a menu
+         clicking on it parent for example */
+      gtk_widget_get_pointer (attached_widget, &x, &y);
+          
+      if ((x < 0) || (x > attached_widget->allocation.width) ||
+          (y < 0) || (y > attached_widget->allocation.height))
+        {
+
+          if (send_press)
+            XTestFakeButtonEvent (gdk_x11_display_get_xdisplay (display),
+                                  button,
+                                  TRUE,
+                                  0);
+
+          if (send_release)
+            XTestFakeButtonEvent (gdk_x11_display_get_xdisplay (display),
+                                  button,
+                                  FALSE,
+                                  0);
+        }
+    }
+}
+
+#endif
+
 static gint
 gtk_menu_shell_button_press (GtkWidget      *widget,
 			     GdkEventButton *event)
@@ -611,6 +707,11 @@ gtk_menu_shell_button_press (GtkWidget      *widget,
 	{
 	  gtk_menu_shell_deactivate (menu_shell);
 	  g_signal_emit (menu_shell, menu_shell_signals[SELECTION_DONE], 0);
+
+#if defined(MAEMO_CHANGES) && defined(HAVE_XTST)
+          _gtk_menu_shell_fake_button_events (widget, event->button, TRUE, FALSE);
+#endif
+
 	}
     }
 
@@ -660,6 +761,7 @@ gtk_menu_shell_button_release (GtkWidget      *widget,
     {
       GtkWidget *menu_item;
       gboolean   deactivate = TRUE;
+      gint       popup_click_time;
 
       if (menu_shell->button && (event->button != menu_shell->button))
 	{
@@ -671,7 +773,12 @@ gtk_menu_shell_button_release (GtkWidget      *widget,
       menu_shell->button = 0;
       menu_item = gtk_menu_shell_get_item (menu_shell, (GdkEvent*) event);
 
-      if ((event->time - menu_shell->activate_time) > MENU_SHELL_TIMEOUT)
+      g_object_get (gtk_widget_get_settings (widget),
+                    "gtk-menu-popup-click-time", &popup_click_time,
+                    NULL);
+
+      if (popup_click_time == 0 ||
+          (event->time - menu_shell->activate_time) > popup_click_time)
         {
           if (menu_item && (menu_shell->active_menu_item == menu_item) &&
               _gtk_menu_item_is_selectable (menu_item))
@@ -752,6 +859,16 @@ gtk_menu_shell_button_release (GtkWidget      *widget,
             {
               deactivate = FALSE;
             }
+
+          /*  popup-click-time = 0 causes the menu to always stay open on
+           *  its opening click, unless an item was activated.
+           */
+          if (!menu_item && popup_click_time == 0 &&
+              menu_shell->activate_time != 0)
+            {
+              menu_shell->activate_time = 0;
+              deactivate = FALSE;
+            }
         }
       else /* a very fast press-release */
         {
@@ -770,6 +887,10 @@ gtk_menu_shell_button_release (GtkWidget      *widget,
         {
           gtk_menu_shell_deactivate (menu_shell);
           g_signal_emit (menu_shell, menu_shell_signals[SELECTION_DONE], 0);
+
+#if defined(MAEMO_CHANGES) && defined(HAVE_XTST)
+          _gtk_menu_shell_fake_button_events (widget, event->button, TRUE, TRUE);
+#endif
         }
 
       priv->activated_submenu = FALSE;
@@ -930,7 +1051,8 @@ gtk_menu_shell_enter_notify (GtkWidget        *widget,
                * its submenu.
                */
               if ((event->state & (GDK_BUTTON1_MASK | GDK_BUTTON2_MASK | GDK_BUTTON3_MASK)) &&
-                  GTK_MENU_ITEM (menu_item)->submenu != NULL)
+                  GTK_MENU_ITEM (menu_item)->submenu != NULL &&
+                  !gtk_widget_get_visible (GTK_MENU_ITEM (menu_item)->submenu))
                 {
                   GtkMenuShellPrivate *priv;
 
@@ -1484,6 +1606,17 @@ gtk_real_menu_shell_move_current (GtkMenuShell         *menu_shell,
 	      gtk_menu_shell_select_submenu_first (parent_menu_shell);
 	    }
 	}
+#ifdef MAEMO_CHANGES
+      else
+        {
+          /* In maemo, the escape key should close one menu hierarchy.
+           * Earlier versions had a separate "close" signal for that.
+           * Now we simply bind escape to move_current(GTK_MENU_DIR_PARENT)
+           * and have this tiny one-liner instead.
+           */
+          gtk_real_menu_shell_cancel (menu_shell);
+        }
+#else
       /* If there is no parent and the submenu is in the opposite direction
        * to the menu, then make the PARENT direction wrap around to
        * the bottom of the submenu.
@@ -1498,6 +1631,7 @@ gtk_real_menu_shell_move_current (GtkMenuShell         *menu_shell,
 	      GTK_MENU_SHELL_GET_CLASS (submenu)->submenu_placement)
 	    _gtk_menu_shell_select_last (submenu, TRUE);
 	}
+#endif /* MAEMO_CHANGES */
       break;
 
     case GTK_MENU_DIR_CHILD:

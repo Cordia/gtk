@@ -64,6 +64,9 @@ struct _GtkRBTree
   GtkRBNode *nil;
   GtkRBTree *parent_tree;
   GtkRBNode *parent_node;
+#ifdef MAEMO_CHANGES
+  short base_offset;
+#endif /* MAEMO_CHANGES */
 };
 
 struct _GtkRBNode
@@ -169,6 +172,11 @@ void       _gtk_rbtree_prev_full        (GtkRBTree              *tree,
 					 GtkRBNode             **new_node);
 
 gint       _gtk_rbtree_get_depth        (GtkRBTree              *tree);
+
+#ifdef MAEMO_CHANGES
+void       _gtk_rbtree_set_base_offset  (GtkRBTree              *tree,
+                                         short                   base_offset);
+#endif /* MAEMO_CHANGES */
 
 /* This func checks the integrity of the tree */
 #ifdef G_ENABLE_DEBUG  

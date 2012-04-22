@@ -31,6 +31,15 @@
 
 G_BEGIN_DECLS
 
+#ifdef MAEMO_CHANGES
+typedef enum
+{
+  GTK_IM_CONTEXT_CLIPBOARD_OP_COPY,
+  GTK_IM_CONTEXT_CLIPBOARD_OP_CUT,
+  GTK_IM_CONTEXT_CLIPBOARD_OP_PASTE
+} GtkIMContextClipboardOperation;
+#endif /* MAEMO_CHANGES */
+
 #define GTK_TYPE_IM_CONTEXT              (gtk_im_context_get_type ())
 #define GTK_IM_CONTEXT(obj)              (G_TYPE_CHECK_INSTANCE_CAST ((obj), GTK_TYPE_IM_CONTEXT, GtkIMContext))
 #define GTK_IM_CONTEXT_CLASS(klass)      (G_TYPE_CHECK_CLASS_CAST ((klass), GTK_TYPE_IM_CONTEXT, GtkIMContextClass))
@@ -92,11 +101,26 @@ struct _GtkIMContextClass
   /*< private >*/
   /* Padding for future expansion */
   void (*_gtk_reserved1) (void);
+
+#ifdef MAEMO_CHANGES
+  void     (*show)                (GtkIMContext   *context);
+  void     (*hide)                (GtkIMContext   *context);
+
+  /* Signals again: */
+  gboolean (*has_selection)       (GtkIMContext   *context);
+  void     (*clipboard_operation) (GtkIMContext   *context,
+                                   GtkIMContextClipboardOperation operation);
+
+  /* Virtual functions again: */
+  gboolean (*filter_event)        (GtkIMContext   *context,
+                                   GdkEvent       *event);
+#else   /* MAEMO_CHANGES */
   void (*_gtk_reserved2) (void);
   void (*_gtk_reserved3) (void);
   void (*_gtk_reserved4) (void);
   void (*_gtk_reserved5) (void);
   void (*_gtk_reserved6) (void);
+#endif /* MAEMO_CHANGES */
 };
 
 GType    gtk_im_context_get_type            (void) G_GNUC_CONST;
@@ -126,6 +150,21 @@ gboolean gtk_im_context_get_surrounding     (GtkIMContext       *context,
 gboolean gtk_im_context_delete_surrounding  (GtkIMContext       *context,
 					     gint                offset,
 					     gint                n_chars);
+
+#ifdef MAEMO_CHANGES
+gboolean hildon_gtk_im_context_filter_event (GtkIMContext   *context,
+                                             GdkEvent        *event);
+
+void     gtk_im_context_show                (GtkIMContext   *context);
+void     gtk_im_context_hide                (GtkIMContext   *context);
+
+void     hildon_gtk_im_context_show          (GtkIMContext   *context);
+void     hildon_gtk_im_context_hide          (GtkIMContext   *context);
+gboolean hildon_gtk_im_context_has_selection(GtkIMContext   *context);
+void     hildon_gtk_im_context_copy         (GtkIMContext   *context);
+void     hildon_gtk_im_context_cut          (GtkIMContext   *context);
+void     hildon_gtk_im_context_paste        (GtkIMContext   *context);
+#endif /* MAEMO_CHANGES */
 
 G_END_DECLS
 

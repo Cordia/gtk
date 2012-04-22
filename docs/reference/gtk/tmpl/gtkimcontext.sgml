@@ -26,6 +26,14 @@ GtkIMContext
 </para>
 
 
+<!-- ##### SIGNAL GtkIMContext::clipboard-operation ##### -->
+<para>
+
+</para>
+
+@imcontext: the object which received the signal.
+@arg1: 
+
 <!-- ##### SIGNAL GtkIMContext::commit ##### -->
 <para>
 
@@ -42,6 +50,14 @@ GtkIMContext
 @imcontext: the object which received the signal.
 @arg1: 
 @arg2: 
+@Returns: 
+
+<!-- ##### SIGNAL GtkIMContext::has-selection ##### -->
+<para>
+
+</para>
+
+@imcontext: the object which received the signal.
 @Returns: 
 
 <!-- ##### SIGNAL GtkIMContext::preedit-changed ##### -->
@@ -105,6 +121,16 @@ GtkIMContext
 @domain: 
 @domain_dirname: 
 @default_locales: 
+
+<!-- ##### ARG GtkIMContext:hildon-input-default ##### -->
+<para>
+
+</para>
+
+<!-- ##### ARG GtkIMContext:hildon-input-mode ##### -->
+<para>
+
+</para>
 
 <!-- ##### FUNCTION gtk_im_context_set_client_window ##### -->
 <para>
@@ -209,5 +235,106 @@ GtkIMContext
 @offset: 
 @n_chars: 
 @Returns: 
+
+
+<!-- ##### ENUM GtkIMContextClipboardOperation ##### -->
+<para>
+Determines the type of the requested clipboard operation. 
+</para>
+
+@GTK_IM_CONTEXT_CLIPBOARD_OP_COPY: Copy the currently selected text to the clipboard.
+@GTK_IM_CONTEXT_CLIPBOARD_OP_CUT: Copy the currently selected text to the clipboard and then delete it from the widget.
+@GTK_IM_CONTEXT_CLIPBOARD_OP_PASTE: Paste the contents of the clipboard.
+
+<!-- ##### ENUM HildonGtkInputMode ##### -->
+<para>
+Determines the input mode. Setting the mode allows the input method
+to focus on the type of input that the application is expecting.
+</para>
+
+@HILDON_GTK_INPUT_MODE_ALPHA: alphabetical characters and whitespace
+@HILDON_GTK_INPUT_MODE_NUMERIC: numbers 0-9 and the '-' character
+@HILDON_GTK_INPUT_MODE_SPECIAL: special characters
+@HILDON_GTK_INPUT_MODE_HEXA: hexadecimal characters; numbers 0-9, characters a-f, and A-F
+@HILDON_GTK_INPUT_MODE_TELE: telephone numbers; numbers 0-9, whitespace, and the characters "pwPW/().-+*#?,"
+@HILDON_GTK_INPUT_MODE_FULL: unrestricted entry mode, combination of the alpha, numeric and special modes.
+@HILDON_GTK_INPUT_MODE_MULTILINE: the client contains multiple lines of text or accepts linebreaks in the input.
+@HILDON_GTK_INPUT_MODE_INVISIBLE: do not echo or save the input in the IM when entering sensitive information such as passwords.
+@HILDON_GTK_INPUT_MODE_AUTOCAP: automatically capitalize the first letter at the start of a sentence.
+@HILDON_GTK_INPUT_MODE_DICTIONARY: enable predictive dictionaries and learning based on the input.
+
+<!-- ##### FUNCTION gtk_im_context_hide ##### -->
+<para>
+
+</para>
+
+@context: 
+
+
+<!-- ##### FUNCTION gtk_im_context_show ##### -->
+<para>
+
+</para>
+
+@context: 
+
+
+<!-- ##### FUNCTION hildon_gtk_im_context_copy ##### -->
+<para>
+
+</para>
+
+@context: 
+
+
+<!-- ##### FUNCTION hildon_gtk_im_context_cut ##### -->
+<para>
+
+</para>
+
+@context: 
+
+
+<!-- ##### FUNCTION hildon_gtk_im_context_filter_event ##### -->
+<para>
+
+</para>
+
+@context: 
+@event: 
+@Returns: 
+
+
+<!-- ##### FUNCTION hildon_gtk_im_context_has_selection ##### -->
+<para>
+
+</para>
+
+@context: 
+@Returns: 
+
+
+<!-- ##### FUNCTION hildon_gtk_im_context_hide ##### -->
+<para>
+
+</para>
+
+@context: 
+
+
+<!-- ##### FUNCTION hildon_gtk_im_context_paste ##### -->
+<para>
+
+</para>
+
+@context: 
+
+
+<!-- ##### FUNCTION hildon_gtk_im_context_show ##### -->
+<para>
+
+</para>
+
+@context: 
 
 

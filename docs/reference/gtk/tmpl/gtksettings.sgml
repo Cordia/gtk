@@ -254,6 +254,11 @@ GtkSettings instance for the default screen.
 
 </para>
 
+<!-- ##### ARG GtkSettings:gtk-menu-popup-click-time ##### -->
+<para>
+
+</para>
+
 <!-- ##### ARG GtkSettings:gtk-menu-popup-delay ##### -->
 <para>
 

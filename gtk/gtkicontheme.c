@@ -66,6 +66,9 @@ typedef enum
   ICON_SUFFIX_SVG = 1 << 1,
   ICON_SUFFIX_PNG = 1 << 2,
   HAS_ICON_FILE = 1 << 3
+#ifdef MAEMO_CHANGES
+  , ICON_SUFFIX_ANI = 1 << 4
+#endif /* MAEMO_CHANGES */
 } IconSuffix;
 
 
@@ -1046,6 +1049,9 @@ load_themes (GtkIconTheme *icon_theme)
   GTimeVal tv;
   IconThemeDirMtime *dir_mtime;
   struct stat stat_buf;
+#ifdef MAEMO_CHANGES
+  GList *t, *d;
+#endif /* MAEMO_CHANGES */
   
   priv = icon_theme->priv;
 
@@ -1147,6 +1153,25 @@ load_themes (GtkIconTheme *icon_theme)
 	}
       g_dir_close (gdir);
     }
+
+#ifdef MAEMO_CHANGES
+  for (t = priv->themes; t; t = t->next)
+    {
+      for (d = ((IconTheme *)t->data)->dirs; d; d = d->next)
+        {
+          const char *dir = ((IconThemeDir *)d->data)->dir;
+
+          if (g_stat (dir, &stat_buf) != 0 || !S_ISDIR (stat_buf.st_mode))
+            continue;
+          dir_mtime = g_slice_new (IconThemeDirMtime);
+          priv->dir_mtimes = g_list_append (priv->dir_mtimes, dir_mtime);
+
+          dir_mtime->dir = g_strdup (dir);
+          dir_mtime->cache = NULL;
+          dir_mtime->mtime = stat_buf.st_mtime;
+        }
+    }
+#endif /* MAEMO_CHANGES */
 
   priv->themes_valid = TRUE;
   
@@ -2022,6 +2047,10 @@ string_from_suffix (IconSuffix suffix)
       return ".svg";
     case ICON_SUFFIX_PNG:
       return ".png";
+#ifdef MAEMO_CHANGES
+    case ICON_SUFFIX_ANI:
+      return ".ani";
+#endif /* MAEMO_CHANGES */
     default:
       g_assert_not_reached();
     }
@@ -2039,6 +2068,10 @@ suffix_from_name (const char *name)
     retval = ICON_SUFFIX_SVG;
   else if (g_str_has_suffix (name, ".xpm"))
     retval = ICON_SUFFIX_XPM;
+#ifdef MAEMO_CHANGES
+  else if (g_str_has_prefix (name, ".ani"))
+    retval = ICON_SUFFIX_ANI;
+#endif /* MAEMO_CHANGES */
   else
     retval = ICON_SUFFIX_NONE;
 
@@ -2055,6 +2088,10 @@ best_suffix (IconSuffix suffix,
     return ICON_SUFFIX_SVG;
   else if ((suffix & ICON_SUFFIX_XPM) != 0)
     return ICON_SUFFIX_XPM;
+#ifdef MAEMO_CHANGES
+  else if ((suffix & ICON_SUFFIX_ANI) != 0)
+    return ICON_SUFFIX_ANI;
+#endif /* MAEMO_CHANGES */
   else
     return ICON_SUFFIX_NONE;
 }
@@ -3430,6 +3467,9 @@ _gtk_icon_theme_check_reload (GdkDisplay *display)
       icon_theme = g_object_get_data (G_OBJECT (screen), "gtk-icon-theme");
       if (icon_theme)
 	{
+#ifdef MAEMO_CHANGES
+          icon_theme->priv->last_stat_time = 0;
+#endif
 	  icon_theme->priv->check_reload = TRUE;
 	  ensure_valid_themes (icon_theme);
 	  icon_theme->priv->check_reload = FALSE;

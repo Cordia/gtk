@@ -238,6 +238,27 @@ gboolean                gtk_tree_view_column_cell_get_position   (GtkTreeViewCol
 void                    gtk_tree_view_column_queue_resize        (GtkTreeViewColumn       *tree_column);
 GtkWidget              *gtk_tree_view_column_get_tree_view       (GtkTreeViewColumn       *tree_column);
 
+#ifdef MAEMO_CHANGES
+/**
+ * GtkTreeCellDataHint:
+ *
+ * See gtk_tree_view_column_get_cell_data_hint().
+ **/
+typedef enum
+{
+  GTK_TREE_CELL_DATA_HINT_ALL,
+  GTK_TREE_CELL_DATA_HINT_KEY_FOCUS,
+  GTK_TREE_CELL_DATA_HINT_SENSITIVITY
+} GtkTreeCellDataHint;
+
+void                       gtk_tree_view_column_cell_set_cell_data_with_hint (GtkTreeViewColumn          *tree_column,
+                                                                              GtkTreeModel               *tree_model,
+                                                                              GtkTreeIter                *iter,
+                                                                              gboolean                    is_expander,
+                                                                              gboolean                    is_expanded,
+                                                                              GtkTreeCellDataHint  hint);
+GtkTreeCellDataHint        gtk_tree_view_column_get_cell_data_hint           (GtkTreeViewColumn          *tree_column);
+#endif /* MAEMO_CHANGES */
 
 G_END_DECLS
 

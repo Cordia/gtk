@@ -100,6 +100,12 @@ void _gtk_button_box_child_requisition (GtkWidget *widget,
 					int       *nvis_secondaries,
 					int       *width,
 					int       *height);
+
+void _gtk_button_box_child_size_props  (GtkButtonBox *bbox,
+                                        gint         *child_min_width,
+                                        gint         *child_min_height,
+                                        gint         *ipad_width,
+                                        gint         *ipad_height);
 G_END_DECLS
 
 #endif /* __GTK_BUTTON_BOX_H__ */

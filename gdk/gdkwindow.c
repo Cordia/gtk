@@ -8767,6 +8767,34 @@ gdk_window_merge_child_shapes (GdkWindow *window)
   do_child_shapes (window, TRUE);
 }
 
+#ifdef MAEMO_CHANGES
+/**
+ * gdk_window_reset_toplevel_updates_libgtk_only:
+ * @window: a #GdkWindow
+ *
+ * Thaws all pending freezes (if any) made with
+ * gdk_window_freeze_toplevel_updates_libgtk_only()
+ *
+ * This function is not part of the GDK public API and is only
+ * for use by GTK+.
+ **/
+void
+gdk_window_reset_toplevel_updates_libgtk_only (GdkWindow *window)
+{
+  GdkWindowObject *private = (GdkWindowObject *)window;
+
+  g_return_if_fail (GDK_IS_WINDOW (window));
+  g_return_if_fail (private->window_type != GDK_WINDOW_CHILD);
+
+  if (private->update_and_descendants_freeze_count > 0)
+    {
+      private->update_and_descendants_freeze_count = 0;
+
+      gdk_window_schedule_update (window);
+    }
+}
+#endif /* MAEMO_CHANGES */
+
 /**
  * gdk_window_input_shape_combine_mask:
  * @window: a #GdkWindow
@@ -11043,6 +11071,7 @@ _gdk_windowing_got_event (GdkDisplay *display,
 	    g_object_unref (display->pointer_info.toplevel_under_pointer);
 	  display->pointer_info.toplevel_under_pointer = NULL;
 	}
+      
     }
 
   /* Store last pointer window and position/state */

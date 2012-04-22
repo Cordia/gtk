@@ -160,10 +160,28 @@ gtk_tree_selection_set_mode (GtkTreeSelection *selection,
 			     GtkSelectionMode  type)
 {
   GtkTreeSelectionFunc tmp_func;
+#ifdef MAEMO_CHANGES
+  HildonMode mode;
+#endif /* MAEMO_CHANGES */
+
   g_return_if_fail (GTK_IS_TREE_SELECTION (selection));
 
   if (selection->type == type)
     return;
+
+#ifdef MAEMO_CHANGES
+  gtk_widget_style_get (GTK_WIDGET (selection->tree_view),
+                        "hildon-mode", &mode,
+                        NULL);
+
+  if (mode == HILDON_FREMANTLE
+      && selection->tree_view->priv->hildon_ui_mode == HILDON_UI_MODE_NORMAL
+      && type != GTK_SELECTION_NONE)
+    {
+      g_warning ("Cannot change the selection mode to anything other than GTK_SELECTION_NONE if hildon-ui-mode is GTK_HILDON_UI_MODE_NORMAL.\n");
+      return;
+    }
+#endif /* MAEMO_CHANGES */
 
   
   if (type == GTK_SELECTION_NONE)
@@ -202,6 +220,49 @@ gtk_tree_selection_set_mode (GtkTreeSelection *selection,
             }
 	}
 
+#ifdef MAEMO_CHANGES
+      if (!selected
+          && mode == HILDON_FREMANTLE
+          && selection->tree_view->priv->hildon_ui_mode == HILDON_UI_MODE_EDIT)
+        {
+          GList *rows;
+
+          /* One item must stay selected; we look for the first selected
+           * item we can find, that one becomes the anchor.  We silently
+           * assume here that there is at least *one* selected row,
+           * as mandated by any new-style edit mode.  When switching
+           * from SELECTION_NONE there is no selected row, and the
+           * tree view will be responsible for selecting a node.
+           */
+
+          if (anchor_path)
+            gtk_tree_path_free (anchor_path);
+
+          /* FIXME: this can be obviously optimized by walking
+           * the selection tree ourselves; or probably having a _real
+           * variant of _get_selected_rows() that we can tell to stop
+           * as soon as a selected node is found.
+           */
+          rows = gtk_tree_selection_get_selected_rows (selection, NULL);
+          if (rows)
+            {
+              anchor_path = gtk_tree_path_copy (rows->data);
+              g_list_foreach (rows, (GFunc)gtk_tree_path_free, NULL);
+              g_list_free (rows);
+
+              _gtk_tree_view_find_node (selection->tree_view,
+                                        anchor_path,
+                                        &tree,
+                                        &node);
+
+              if (node && GTK_RBNODE_FLAG_SET (node, GTK_RBNODE_IS_SELECTED))
+                selected = TRUE;
+
+              g_return_if_fail (selected == TRUE);
+            }
+        }
+#endif /* MAEMO_CHANGES */
+
       /* We do this so that we unconditionally unset all rows
        */
       tmp_func = selection->user_func;
@@ -221,6 +282,25 @@ gtk_tree_selection_set_mode (GtkTreeSelection *selection,
     }
 
   selection->type = type;
+
+#ifdef MAEMO_CHANGES
+  if (type == GTK_SELECTION_SINGLE
+      || type == GTK_SELECTION_BROWSE)
+    {
+      GtkTreeIter iter;
+
+      /* Make sure the cursor is on a selected node */
+      if (gtk_tree_selection_get_selected (selection, NULL, &iter))
+        {
+	  GtkTreePath *path;
+
+	  path = gtk_tree_model_get_path (selection->tree_view->priv->model,
+					  &iter);
+	  gtk_tree_view_set_cursor (selection->tree_view, path, NULL, FALSE);
+	  gtk_tree_path_free (path);
+	}
+    }
+#endif /* MAEMO_CHANGES */
 }
 
 /**
@@ -1249,13 +1329,68 @@ gtk_tree_selection_unselect_range (GtkTreeSelection *selection,
     g_signal_emit (selection, tree_selection_signals[CHANGED], 0);
 }
 
+#ifdef MAEMO_CHANGES
+static gboolean
+tree_column_is_sensitive (GtkTreeViewColumn *column,
+			  GtkTreeModel      *model,
+			  GtkTreeIter       *iter)
+{
+  GList *cells, *list;
+  gboolean sensitive = TRUE;
+  gboolean visible;
+
+#ifdef MAEMO_CHANGES
+  gtk_tree_view_column_cell_set_cell_data_with_hint (column, model,
+                                                     iter, FALSE, FALSE,
+                                                     GTK_TREE_CELL_DATA_HINT_SENSITIVITY);
+#else /* !MAEMO_CHANGES */
+  gtk_tree_view_column_cell_set_cell_data (column, model,
+					   iter, FALSE, FALSE);
+#endif /* !MAEMO_CHANGES */
+
+  cells = gtk_tree_view_column_get_cell_renderers (column);
+
+  list = cells;
+  while (list)
+    {
+      g_object_get (list->data,
+		    "sensitive", &sensitive,
+		    "visible", &visible,
+		    NULL);
+      
+      if (visible && sensitive)
+	break;
+
+      list = list->next;
+    }
+  g_list_free (cells);
+
+  return sensitive;
+}
+#endif /* MAEMO_CHANGES */
+
 gboolean
 _gtk_tree_selection_row_is_selectable (GtkTreeSelection *selection,
 				       GtkRBNode        *node,
 				       GtkTreePath      *path)
 {
+#ifdef MAEMO_CHANGES
+  GList *list;
+  HildonMode mode;
+#endif /* MAEMO_CHANGES */
   GtkTreeIter iter;
   gboolean sensitive = FALSE;
+
+#ifdef MAEMO_CHANGES
+  gtk_widget_style_get (GTK_WIDGET (selection->tree_view),
+                        "hildon-mode", &mode,
+                        NULL);
+
+  /* normal-mode does not support selections */
+  if (mode == HILDON_FREMANTLE
+      && selection->tree_view->priv->hildon_ui_mode == HILDON_UI_MODE_NORMAL)
+    return FALSE;
+#endif /* MAEMO_CHANGES */
 
   if (!gtk_tree_model_get_iter (selection->tree_view->priv->model, &iter, path))
     sensitive = TRUE;
@@ -1268,6 +1403,33 @@ _gtk_tree_selection_row_is_selectable (GtkTreeSelection *selection,
 							      selection->tree_view->priv->row_separator_data))
 	return FALSE;
     }
+
+#ifdef MAEMO_CHANGES
+  if (!sensitive && selection->tree_view->priv->row_header_func)
+    {
+      /* never allow separators to be selected */
+      if ((* selection->tree_view->priv->row_header_func) (selection->tree_view->priv->model,
+                                                           &iter,
+                                                           NULL,
+                                                           selection->tree_view->priv->row_header_data))
+        return FALSE;
+    }
+#endif /* MAEMO_CHANGES */
+
+#ifdef MAEMO_CHANGES
+  for (list = selection->tree_view->priv->columns; list && !sensitive; list = list->next)
+    {
+      GtkTreeViewColumn *column = GTK_TREE_VIEW_COLUMN (list->data);
+
+      if (!column->visible)
+	continue;
+
+      sensitive = tree_column_is_sensitive (column, selection->tree_view->priv->model, &iter);
+    }
+
+  if (!sensitive)
+    return FALSE;
+#endif /* MAEMO_CHANGES */
 
   if (selection->user_func)
     return (*selection->user_func) (selection, selection->tree_view->priv->model, path,
@@ -1453,6 +1615,13 @@ gtk_tree_selection_real_select_node (GtkTreeSelection *selection,
       path = _gtk_tree_view_find_path (selection->tree_view, tree, node);
       toggle = _gtk_tree_selection_row_is_selectable (selection, node, path);
       gtk_tree_path_free (path);
+
+#ifdef MAEMO_CHANGES
+      /* Allow unselecting an insensitive row */
+      if (!toggle && !select
+	  && GTK_RBNODE_FLAG_SET (node, GTK_RBNODE_IS_SELECTED))
+	toggle = TRUE;
+#endif /* MAEMO_CHANGES */
     }
 
   if (toggle)

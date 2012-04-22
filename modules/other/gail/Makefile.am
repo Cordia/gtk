@@ -128,8 +128,16 @@ gail_private_h_sources =		\
 	gailutil.h			\
 	gailwindow.h
 
+if MAEMO_CHANGES
+gail_public_h_sources =	\
+	gailwidget.h			\
+	gailcell.h			\
+	gailcellparent.h		\
+	gailrenderercell.h
+else
 gail_public_h_sources =	\
 	gailwidget.h
+endif
 
 libgail_la_SOURCES = 			\
 	$(gail_c_sources)		\

@@ -1,7 +1,11 @@
 /*** BEGIN file-header ***/
 #undef GTK_DISABLE_DEPRECATED
 #define GTK_ENABLE_BROKEN
+#ifndef MAEMO_CHANGES
+#define MAEMO_CHANGES
+#endif
 #include "gtk.h"
+#undef MAEMO_CHANGES
 #include "gtkprivate.h"
 #include "gtkalias.h"
 

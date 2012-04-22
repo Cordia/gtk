@@ -940,6 +940,12 @@ GdkGC *_gtk_widget_get_cursor_gc    (GtkWidget          *widget);
 void   _gtk_widget_get_cursor_color (GtkWidget          *widget,
 				     GdkColor           *color);
 
+#ifdef MAEMO_CHANGES
+gboolean  gtk_style_lookup_logical_color     (GtkStyle     *style,
+                                              const gchar  *color_name,
+                                              GdkColor     *color);
+#endif /* MAEMO_CHANGES */
+
 G_END_DECLS
 
 #endif /* __GTK_STYLE_H__ */

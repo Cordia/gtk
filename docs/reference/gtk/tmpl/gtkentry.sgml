@@ -139,6 +139,14 @@ The #GtkEntry-struct struct contains only private data.
 @entry: the object which received the signal.
 @arg1: 
 
+<!-- ##### SIGNAL GtkEntry::invalid-input ##### -->
+<para>
+
+</para>
+
+@entry: the object which received the signal.
+@arg1: 
+
 <!-- ##### SIGNAL GtkEntry::move-cursor ##### -->
 <para>
 
@@ -214,6 +222,16 @@ The #GtkEntry-struct struct contains only private data.
 
 </para>
 
+<!-- ##### ARG GtkEntry:hildon-input-default ##### -->
+<para>
+
+</para>
+
+<!-- ##### ARG GtkEntry:hildon-input-mode ##### -->
+<para>
+
+</para>
+
 <!-- ##### ARG GtkEntry:inner-border ##### -->
 <para>
 
@@ -280,6 +298,16 @@ The #GtkEntry-struct struct contains only private data.
 </para>
 
 <!-- ##### ARG GtkEntry:primary-icon-tooltip-text ##### -->
+<para>
+
+</para>
+
+<!-- ##### ARG GtkEntry:progress-fraction ##### -->
+<para>
+
+</para>
+
+<!-- ##### ARG GtkEntry:progress-pulse-step ##### -->
 <para>
 
 </para>
@@ -400,6 +428,11 @@ The #GtkEntry-struct struct contains only private data.
 </para>
 
 <!-- ##### ARG GtkEntry:progress-border ##### -->
+<para>
+
+</para>
+
+<!-- ##### ARG GtkEntry:state-hint ##### -->
 <para>
 
 </para>
@@ -1059,5 +1092,23 @@ Specifies the side of the entry at which an icon is placed.
 
 @entry: 
 @Returns: 
+
+
+<!-- ##### FUNCTION hildon_gtk_entry_get_input_mode ##### -->
+<para>
+
+</para>
+
+@entry: 
+@Returns: 
+
+
+<!-- ##### FUNCTION hildon_gtk_entry_set_input_mode ##### -->
+<para>
+
+</para>
+
+@entry: 
+@input_mode: 
 
 

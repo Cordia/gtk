@@ -253,6 +253,23 @@ AC_ARG_ENABLE(visibility,
 AC_ARG_WITH(xinput,
             [AC_HELP_STRING([--with-xinput=@<:@no/yes@:>@], [support XInput])])
 
+dnl arg to turn on maemo specific features
+AC_ARG_ENABLE(maemo,
+              AC_HELP_STRING([--with-maemo=@<:@no/yes@:>@],
+                             [enable Maemo specific features @<:@default=yes@:>@]),,
+              with_maemo=yes)
+
+dnl Handle --with-maemo option
+if test "x$with_maemo" = "xyes"; then
+  AC_DEFINE(MAEMO_CHANGES, 1, [define to 1 to enable Maemo specific features])
+  CFLAGS="$CFLAGS -DMAEMO_CHANGES"
+  GTK_EXTRA_CFLAGS="-DMAEMO_CHANGES"
+else
+  GTK_EXTRA_CFLAGS= 
+fi
+
+AM_CONDITIONAL(MAEMO_CHANGES, test x$with_maemo = xyes)
+
 if test "$platform_win32" = yes; then
   gdktarget=win32
 else
@@ -1211,6 +1228,14 @@ if test "x$gdktarget" = "xx11"; then
     X_PACKAGES="$X_PACKAGES xfixes"
     GTK_PACKAGES_FOR_X="$GTK_PACKAGES_FOR_X xfixes"
   fi
+  
+  if $PKG_CONFIG --exists xtst ; then
+    AC_DEFINE(HAVE_XTST, 1, [Have the XTST X extension])
+    
+    X_PACKAGES="$X_PACKAGES xtst"
+    GTK_PACKAGES_FOR_X="$GTK_PACKAGES_FOR_X xtst"
+  fi
+
 
   # Checks for Xcomposite extension
 
@@ -1378,7 +1403,6 @@ if test "x$gdktarget" = "xx11"; then
   GTK_PACKAGES="$GTK_PACKAGES pangoft2"
 fi
 GTK_EXTRA_LIBS=
-GTK_EXTRA_CFLAGS= 
 GTK_DEP_LIBS="$GDK_EXTRA_LIBS $GTK_DEP_LIBS_FOR_X `$PKG_CONFIG --libs $PANGO_PACKAGES $GTK_PACKAGES_FOR_X $GTK_PACKAGES` $GTK_EXTRA_LIBS $MATH_LIB"
 GTK_DEP_CFLAGS="`$PKG_CONFIG --cflags  gthread-2.0 $GDK_PACKAGES $GTK_PACKAGES` $GDK_EXTRA_CFLAGS $GTK_EXTRA_CFLAGS"
 

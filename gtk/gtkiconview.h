@@ -47,6 +47,13 @@ typedef void (* GtkIconViewForeachFunc)     (GtkIconView      *icon_view,
 					     GtkTreePath      *path,
 					     gpointer          data);
 
+#ifdef MAEMO_CHANGES
+typedef gboolean (* HildonIconViewRowHeaderFunc) (GtkTreeModel *model,
+                                                  GtkTreeIter  *iter,
+                                                  gchar       **label,
+                                                  gpointer      data);
+#endif /* MAEMO_CHANGES */
+
 typedef enum
 {
   GTK_ICON_VIEW_NO_DROP,
@@ -236,6 +243,13 @@ void     gtk_icon_view_set_tooltip_column                     (GtkIconView      
                                                                gint               column);
 gint     gtk_icon_view_get_tooltip_column                     (GtkIconView       *icon_view);
 
+#ifdef MAEMO_CHANGES
+HildonIconViewRowHeaderFunc hildon_icon_view_get_row_header_func (GtkIconView                 *icon_view);
+void                        hildon_icon_view_set_row_header_func (GtkIconView                 *icon_view,
+                                                                  HildonIconViewRowHeaderFunc  func,
+                                                                  gpointer                     data,
+                                                                  GDestroyNotify               destroy);
+#endif /* MAEMO_CHANGES */
 
 G_END_DECLS
 

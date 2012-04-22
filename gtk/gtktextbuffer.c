@@ -4409,5 +4409,31 @@ _gtk_text_buffer_spew (GtkTextBuffer *buffer)
   _gtk_text_btree_spew (get_btree (buffer));
 }
 
+#ifdef MAEMO_CHANGES
+void
+gtk_text_buffer_set_can_paste_rich_text (GtkTextBuffer *buffer,
+                                         gboolean       can_paste_rich_text)
+{
+}
+
+gboolean
+gtk_text_buffer_get_can_paste_rich_text (GtkTextBuffer *buffer)
+{
+  return FALSE;
+}
+
+void
+gtk_text_buffer_set_rich_text_format (GtkTextBuffer *buffer,
+                                      const gchar   *format)
+{
+}
+
+const gchar *
+gtk_text_buffer_get_rich_text_format (GtkTextBuffer *buffer)
+{
+  return NULL;
+}
+#endif /* MAEMO_CHANGES */
+
 #define __GTK_TEXT_BUFFER_C__
 #include "gtkaliasdef.c"

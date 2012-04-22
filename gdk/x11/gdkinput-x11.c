@@ -235,6 +235,15 @@ gdk_input_device_new (GdkDisplay  *display,
   gdkdev->proximityout_type = 0;
   gdkdev->changenotify_type = 0;
 
+#ifdef MAEMO_CHANGES
+  /* always enable extension events to get touchscreen pressure */
+  if (gdkdev->info.source == GDK_SOURCE_PEN)
+    {
+      if (!gdk_device_set_mode (&gdkdev->info, GDK_MODE_SCREEN))
+        g_warning ("Failed to enable pressure on `%s'", gdkdev->info.name);
+    }
+#endif /* MAEMO_CHANGES */
+
   return gdkdev;
 
  error:

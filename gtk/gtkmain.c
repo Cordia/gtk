@@ -1638,10 +1638,21 @@ gtk_main_do_event (GdkEvent *event)
       gtk_widget_event (event_widget, event);
       break;
 
+#ifndef MAEMO_CHANGES
     case GDK_SCROLL:
+#endif
     case GDK_BUTTON_PRESS:
+#ifdef MAEMO_CHANGES
+      if (!gtk_widget_is_sensitive (event_widget) &&
+          (event_widget == grab_widget || gtk_widget_is_ancestor (event_widget, grab_widget)))
+        gtk_widget_insensitive_press (event_widget);
+      /* fall through */
+#endif /* MAEMO_CHANGES */
     case GDK_2BUTTON_PRESS:
     case GDK_3BUTTON_PRESS:
+#ifdef MAEMO_CHANGES
+    case GDK_SCROLL:
+#endif
       gtk_propagate_event (grab_widget, event);
       break;
 

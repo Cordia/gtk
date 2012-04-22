@@ -335,6 +335,9 @@ _gtk_rbtree_new (void)
   retval = g_new (GtkRBTree, 1);
   retval->parent_tree = NULL;
   retval->parent_node = NULL;
+#ifdef MAEMO_CHANGES
+  retval->base_offset = 0;
+#endif /* MAEMO_CHANGES */
 
   retval->nil = g_slice_new (GtkRBNode);
   retval->nil->left = NULL;
@@ -962,6 +965,9 @@ _gtk_rbtree_node_find_offset (GtkRBTree *tree,
 {
   GtkRBNode *last;
   gint retval;
+#ifdef MAEMO_CHANGES
+  GtkRBTree *origtree = tree;
+#endif /* !MAEMO_CHANGES */
 
   g_assert (node);
   g_assert (node->left);
@@ -987,7 +993,15 @@ _gtk_rbtree_node_find_offset (GtkRBTree *tree,
 	    retval += node->left->offset + GTK_RBNODE_GET_HEIGHT (node);
 	}
     }
+
+#ifdef MAEMO_CHANGES
+  while (origtree->parent_tree)
+    origtree = origtree->parent_tree;
+
+  return retval + origtree->base_offset;
+#else /* !MAEMO_CHANGES */
   return retval;
+#endif /* !MAEMO_CHANGES */
 }
 
 gint
@@ -1094,6 +1108,13 @@ _gtk_rbtree_find_offset (GtkRBTree  *tree,
 			      GtkRBNode **new_node)
 {
   g_assert (tree);
+
+#ifdef MAEMO_CHANGES
+  /* We (ab)use the fact that "tree" that is passed in is always
+   * the root.
+   */
+  height -= tree->base_offset;
+#endif /* MAEMO_CHANGES */
 
   if ((height < 0) ||
       (height >= tree->root->offset))
@@ -1410,6 +1431,15 @@ _gtk_rbtree_get_depth (GtkRBTree *tree)
 
   return depth;
 }
+
+#ifdef MAEMO_CHANGES
+void
+_gtk_rbtree_set_base_offset (GtkRBTree *tree,
+                             short      base_offset)
+{
+  tree->base_offset = base_offset;
+}
+#endif /* MAEMO_CHANGES */
 
 static void
 _gtk_rbtree_traverse_pre_order (GtkRBTree             *tree,

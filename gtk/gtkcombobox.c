@@ -488,6 +488,11 @@ static void     gtk_combo_box_child_show                     (GtkWidget       *w
 							      GtkComboBox     *combo_box);
 static void     gtk_combo_box_child_hide                     (GtkWidget       *widget,
 							      GtkComboBox     *combo_box);
+#ifdef MAEMO_CHANGES
+static gboolean gtk_combo_box_child_delete_event             (GtkWidget       *widget,
+                                                              GdkEventAny     *event,
+                                                              GtkComboBox     *combo_box);
+#endif
 
 /* GtkComboBox:has-entry callbacks */
 static void     gtk_combo_box_entry_contents_changed         (GtkEntry        *entry,
@@ -1386,6 +1391,13 @@ gtk_combo_box_add (GtkContainer *container,
 
       gtk_entry_set_has_frame (GTK_ENTRY (widget), priv->has_frame);
     }
+
+#ifdef MAEMO_CHANGES
+  /* Hildon: propagate the insensitive-press */
+  if (GTK_BIN (container)->child)
+    g_signal_connect_swapped (GTK_BIN (container)->child, "insensitive-press",
+			      G_CALLBACK (gtk_widget_insensitive_press), combo_box);
+#endif /* MAEMO_CHANGES */
 }
 
 static void
@@ -1413,6 +1425,11 @@ gtk_combo_box_remove (GtkContainer *container,
 
   if (widget == priv->cell_view)
     priv->cell_view = NULL;
+
+#ifdef MAEMO_CHANGES
+  /* Hildon: stop propagating the insensitive-press */
+  g_signal_handlers_disconnect_by_func (widget, G_CALLBACK (gtk_widget_insensitive_press), combo_box);
+#endif /* MAEMO_CHANGES */
 
   gtk_widget_unparent (widget);
   GTK_BIN (container)->child = NULL;
@@ -1588,6 +1605,12 @@ gtk_combo_box_set_popup_widget (GtkComboBox *combo_box,
 	  g_signal_connect (GTK_WINDOW (priv->popup_window),"hide",
 			    G_CALLBACK (gtk_combo_box_child_hide),
 			    combo_box);
+#ifdef MAEMO_CHANGES
+	  g_signal_connect (GTK_WINDOW(combo_box->priv->popup_window),"delete_event",
+			    G_CALLBACK (gtk_combo_box_child_delete_event),
+			    combo_box);
+	  gtk_window_set_is_temporary (GTK_WINDOW (combo_box->priv->popup_window), TRUE);
+#endif /* MAEMO_CHANGES */
   	  
 	  toplevel = gtk_widget_get_toplevel (GTK_WIDGET (combo_box));
 	  if (GTK_IS_WINDOW (toplevel))
@@ -1837,6 +1860,70 @@ gtk_combo_box_list_position (GtkComboBox *combo_box,
   monitor_num = gdk_screen_get_monitor_at_window (screen, 
 						  GTK_WIDGET (combo_box)->window);
   gdk_screen_get_monitor_geometry (screen, monitor_num, &monitor);
+
+#ifdef MAEMO_CHANGES
+  {
+    GdkAtom  prop_type;
+    gint     prop_format;
+    gint     prop_length;
+    gint32  *work_area;
+
+#if 0
+    g_message ("%s: monitor %d: %d, %d (%d x %d)",
+               G_STRFUNC, private->monitor_num,
+               monitor.x, monitor.y,
+               monitor.width, monitor.height);
+#endif
+
+    if (gdk_property_get (gdk_screen_get_root_window (screen),
+                          gdk_atom_intern_static_string ("_NET_WORKAREA"),
+                          GDK_NONE,
+                          0, 16, FALSE,
+                          &prop_type, &prop_format, &prop_length,
+                          (guchar **) &work_area))
+      {
+        if (prop_format == 32 && prop_length == 16)
+          {
+            GdkRectangle work_rectangle;
+
+#if 0
+            g_message ("%s: work area: %d, %d (%d x %d)",
+                       G_STRFUNC,
+                       work_area[0], work_area[1],
+                       work_area[2], work_area[3]);
+#endif
+
+            work_rectangle.x      = work_area[0];
+            work_rectangle.y      = work_area[1];
+            work_rectangle.width  = work_area[2];
+            work_rectangle.height = work_area[3];
+
+            gdk_rectangle_intersect (&monitor, &work_rectangle, &monitor);
+
+#if 0
+            g_message ("%s: new monitor %d: %d, %d (%d x %d)",
+                       G_STRFUNC, private->monitor_num,
+                       monitor.x, monitor.y,
+                       monitor.width, monitor.height);
+#endif
+          }
+        else
+          {
+            g_warning ("%s: _NET_WORKAREA property has the wrong format!",
+                       G_STRFUNC);
+
+          }
+
+        g_free (work_area);
+      }
+    else
+      {
+        g_warning ("%s: _NET_WORKAREA property not found!",
+                   G_STRFUNC);
+
+      }
+  }
+#endif /* MAEMO_CHANGES */
 
   if (*x < monitor.x)
     *x = monitor.x;
@@ -2491,6 +2578,23 @@ gtk_combo_box_size_allocate (GtkWidget     *widget,
                }
             }
 
+          if (gtk_widget_get_visible (priv->popup_widget))
+            {
+              gint width;
+              GtkRequisition requisition;
+
+              /* Warning here, without the check in the position func */
+              gtk_menu_reposition (GTK_MENU (priv->popup_widget));
+              if (priv->wrap_width == 0)
+                {
+                  width = GTK_WIDGET (combo_box)->allocation.width;
+                  gtk_widget_set_size_request (priv->popup_widget, -1, -1);
+                  gtk_widget_size_request (priv->popup_widget, &requisition);
+                  gtk_widget_set_size_request (priv->popup_widget,
+                    MAX (width, requisition.width), -1);
+               }
+            }
+
 	  child.width = MAX (1, child.width);
 	  child.height = MAX (1, child.height);
           gtk_widget_size_allocate (GTK_BIN (widget)->child, &child);
@@ -2660,6 +2764,18 @@ gtk_combo_box_child_hide (GtkWidget *widget,
   priv->popup_shown = FALSE;
   g_object_notify (G_OBJECT (combo_box), "popup-shown");
 }
+
+#ifdef MAEMO_CHANGES
+static gboolean
+gtk_combo_box_child_delete_event (GtkWidget *widget,
+				  GdkEventAny *event,
+				  GtkComboBox *combo_box)
+{
+  gtk_combo_box_popdown (combo_box);
+
+  return TRUE;
+}
+#endif
 
 static gboolean
 gtk_combo_box_expose_event (GtkWidget      *widget,
@@ -2976,6 +3092,11 @@ gtk_combo_box_menu_setup (GtkComboBox *combo_box,
       gtk_button_set_focus_on_click (GTK_BUTTON (priv->button),
 				     priv->focus_on_click);
 
+#ifdef MAEMO_CHANGES
+      if (GTK_IS_ENTRY (GTK_BIN (combo_box)->child))
+        GTK_WIDGET_UNSET_FLAGS (combo_box->priv->button, GTK_CAN_FOCUS);
+#endif /* MAEMO_CHANGES */
+
       g_signal_connect (priv->button, "toggled",
                         G_CALLBACK (gtk_combo_box_button_toggled), combo_box);
       gtk_widget_set_parent (priv->button,
@@ -3007,6 +3128,13 @@ gtk_combo_box_menu_setup (GtkComboBox *combo_box,
       gtk_container_add (GTK_CONTAINER (priv->button), priv->arrow);
       gtk_widget_show_all (priv->button);
     }
+
+#ifdef MAEMO_CHANGES
+  /* Hildon: propagate the insensitive press */
+  g_signal_connect_swapped (combo_box->priv->button, "insensitive-press",
+                            G_CALLBACK (gtk_widget_insensitive_press),
+                            combo_box);
+#endif /* MAEMO_CHANGES */
 
   g_signal_connect (priv->button, "button-press-event",
                     G_CALLBACK (gtk_combo_box_menu_button_press),
@@ -3837,10 +3965,23 @@ gtk_combo_box_list_setup (GtkComboBox *combo_box)
   priv->button = gtk_toggle_button_new ();
   gtk_widget_set_parent (priv->button,
                          GTK_BIN (combo_box)->child->parent);
+
+#ifdef MAEMO_CHANGES
+  if (GTK_IS_ENTRY (GTK_BIN (combo_box)->child))
+    GTK_WIDGET_UNSET_FLAGS (combo_box->priv->button, GTK_CAN_FOCUS);
+#endif /* MAEMO_CHANGES */
+
   g_signal_connect (priv->button, "button-press-event",
                     G_CALLBACK (gtk_combo_box_list_button_pressed), combo_box);
   g_signal_connect (priv->button, "toggled",
                     G_CALLBACK (gtk_combo_box_button_toggled), combo_box);
+
+#ifdef MAEMO_CHANGES
+  /* Hildon: propagate the insensitive press */
+  g_signal_connect_swapped (combo_box->priv->button, "insensitive-press",
+                            G_CALLBACK (gtk_widget_insensitive_press),
+                            combo_box);
+#endif /* MAEMO_CHANGES */
 
   priv->arrow = gtk_arrow_new (GTK_ARROW_DOWN, GTK_SHADOW_NONE);
   gtk_container_add (GTK_CONTAINER (priv->button), priv->arrow);
@@ -3856,6 +3997,13 @@ gtk_combo_box_list_setup (GtkComboBox *combo_box)
       priv->box = gtk_event_box_new ();
       gtk_event_box_set_visible_window (GTK_EVENT_BOX (priv->box), 
 					FALSE);
+
+#ifdef MAEMO_CHANGES
+      /* Hildon: propagate the insensitive press */
+      g_signal_connect_swapped (combo_box->priv->box, "insensitive-press",
+                                G_CALLBACK (gtk_widget_insensitive_press),
+                                combo_box);
+#endif /* MAEMO_CHANGES */
 
       if (priv->has_frame)
 	{
@@ -3978,6 +4126,14 @@ gtk_combo_box_list_destroy (GtkComboBox *combo_box)
 					0, 0, NULL, 
 					gtk_combo_box_child_hide,
 					NULL);
+
+#ifdef MAEMO_CHANGES
+  g_signal_handlers_disconnect_matched (combo_box->priv->popup_window,
+					G_SIGNAL_MATCH_DATA,
+					0, 0, NULL, 
+					gtk_combo_box_child_delete_event,
+					NULL);
+#endif
   
   if (priv->box)
     g_signal_handlers_disconnect_matched (priv->box,
@@ -4048,9 +4204,13 @@ gtk_combo_box_list_button_pressed (GtkWidget      *widget,
       gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (priv->button)))
     return FALSE;
 
+#ifdef MAEMO_CHANGES
+  gtk_widget_grab_focus (GTK_WIDGET (combo_box));
+#else
   if (priv->focus_on_click && 
       !gtk_widget_has_focus (priv->button))
     gtk_widget_grab_focus (priv->button);
+#endif /* MAEMO_CHANGES */
 
   gtk_combo_box_popup (combo_box);
 
@@ -5235,7 +5395,7 @@ gtk_combo_box_set_model (GtkComboBox  *combo_box,
 
   if (model == combo_box->priv->model)
     return;
-  
+
   gtk_combo_box_unset_model (combo_box);
 
   if (model == NULL)

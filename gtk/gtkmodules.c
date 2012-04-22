@@ -575,3 +575,13 @@ _gtk_modules_settings_changed (GtkSettings *settings,
 			  new_modules,
 			  settings_destroy_notify);
 }
+
+#ifdef MAEMO_CHANGES
+/*  Don't you dare using this function if you are not hildon-fm :-)  */
+gchar *
+hildon_fm_private_find_module (const gchar *name,
+                               const gchar *type)
+{
+  return _gtk_find_module (name, type);
+}
+#endif

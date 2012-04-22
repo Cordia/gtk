@@ -3084,9 +3084,13 @@ gtk_label_ensure_layout (GtkLabel *label)
 
 	      wrap_width = get_label_wrap_width (label);
 	      width = MIN (width, wrap_width);
+#ifndef MAEMO_CHANGES
 	      width = MIN (width,
 			   PANGO_SCALE * (gdk_screen_get_width (screen) + 1) / 2);
-	      
+#else
+	      width = MIN (width, PANGO_SCALE * (gdk_screen_get_width (screen) + 1) * 0.70);
+#endif
+              
 	      pango_layout_set_width (label->layout, width);
 	      pango_layout_get_extents (label->layout, NULL, &logical_rect);
 	      width = logical_rect.width;

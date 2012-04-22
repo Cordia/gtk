@@ -1794,6 +1794,25 @@ gtk_rc_reparse_all_for_settings (GtkSettings *settings,
 
       gtk_rc_parse_default_files (context);
 
+#ifdef MAEMO_CHANGES
+      /* Swapped these sections of code, so the styles from the
+       * XSettings theme are available when parsing with
+       * gtk_rc_context_parse_string
+       */
+      g_free (context->theme_name);
+      g_free (context->key_theme_name);
+
+      g_object_get (context->settings,
+		    "gtk-theme-name", &context->theme_name,
+		    "gtk-key-theme-name", &context->key_theme_name,
+		    NULL);
+
+      if (context->theme_name && context->theme_name[0])
+	gtk_rc_parse_named (context, context->theme_name, NULL);
+      if (context->key_theme_name && context->key_theme_name[0])
+	gtk_rc_parse_named (context, context->key_theme_name, "key");
+#endif /* MAEMO_CHANGES */
+
       tmp_list = global_rc_files;
       while (tmp_list)
 	{
@@ -1807,6 +1826,7 @@ gtk_rc_reparse_all_for_settings (GtkSettings *settings,
 	  tmp_list = tmp_list->next;
 	}
 
+#ifndef MAEMO_CHANGES
       g_free (context->theme_name);
       g_free (context->key_theme_name);
 
@@ -1819,6 +1839,7 @@ gtk_rc_reparse_all_for_settings (GtkSettings *settings,
 	gtk_rc_parse_named (context, context->theme_name, NULL);
       if (context->key_theme_name && context->key_theme_name[0])
 	gtk_rc_parse_named (context, context->key_theme_name, "key");
+#endif /* !MAEMO_CHANGES */
 
       context->reloading = FALSE;
 
@@ -2238,6 +2259,11 @@ gtk_rc_parse_any (GtkRcContext *context,
       g_assert (input_string == NULL);
       
       g_scanner_input_file (scanner, input_fd);
+
+#ifdef MAEMO_CHANGES
+      if (input_name)
+        hildon_g_scanner_cache_open (scanner, input_name);
+#endif /* MAEMO_CHANGES */
     }
   else
     {
@@ -2826,6 +2852,25 @@ gtk_rc_parse_assignment (GScanner      *scanner,
 static gboolean
 is_c_identifier (const gchar *string)
 {
+#ifdef MAEMO_CHANGES
+  if ((string[0] >= 'a' && string[0] <= 'z') ||
+      (string[0] >= 'A' && string[0] <= 'Z') ||
+      string[0] == '_')
+    {
+      const gchar *p;
+
+      for (p = string + 1; *p ; p++)
+        if (! ((*p >= 'a' && *p <= 'z') ||
+               (*p >= 'A' && *p <= 'Z') ||
+               (*p >= '0' && *p <= '9') ||
+               *p == '-' || *p == '_'))
+          return FALSE;
+
+      return TRUE;
+    }
+
+  return FALSE;
+#else /* !MAEMO_CHANGES */
   const gchar *p;
   gboolean is_varname;
 
@@ -2834,6 +2879,7 @@ is_c_identifier (const gchar *string)
     is_varname &= strchr (G_CSET_DIGITS "-_" G_CSET_a_2_z G_CSET_A_2_Z, *p) != NULL;
 
   return is_varname;
+#endif /* MAEMO_CHANGES */
 }
 
 static void

@@ -1374,7 +1374,9 @@ gtk_entry_set_icon_drag_source
 gtk_entry_get_current_icon_drag_source
 gtk_entry_get_icon_window
 gtk_entry_get_text_window
-
+<SUBSECTION Hildon>
+hildon_gtk_entry_get_input_mode
+hildon_gtk_entry_set_input_mode
 <SUBSECTION Standard>
 GTK_ENTRY
 GTK_IS_ENTRY
@@ -2163,6 +2165,18 @@ gtk_im_context_set_use_preedit
 gtk_im_context_set_surrounding
 gtk_im_context_get_surrounding
 gtk_im_context_delete_surrounding
+<SUBSECTION Hildon>
+GtkIMContextClipboardOperation
+HildonGtkInputMode
+gtk_im_context_hide
+gtk_im_context_show
+hildon_gtk_im_context_copy
+hildon_gtk_im_context_cut
+hildon_gtk_im_context_filter_event
+hildon_gtk_im_context_has_selection
+hildon_gtk_im_context_hide
+hildon_gtk_im_context_paste
+hildon_gtk_im_context_show
 <SUBSECTION Standard>
 GTK_IM_CONTEXT
 GTK_IS_IM_CONTEXT
@@ -4179,6 +4193,9 @@ gtk_text_view_reset_im_context
 gtk_text_view_get_hadjustment
 gtk_text_view_get_vadjustment
 GTK_TEXT_VIEW_PRIORITY_VALIDATE
+<SUBSECTION Hildon>
+hildon_gtk_text_view_get_input_mode
+hildon_gtk_text_view_set_input_mode
 <SUBSECTION Standard>
 GTK_TEXT_VIEW
 GTK_IS_TEXT_VIEW
@@ -5013,6 +5030,11 @@ gtk_tree_view_column_set_sort_indicator
 gtk_tree_view_column_get_sort_indicator
 gtk_tree_view_column_set_sort_order
 gtk_tree_view_column_get_sort_order
+<SUBSECTION Hildon>
+GtkTreeCellDataHint
+gtk_tree_view_column_cell_set_cell_data_with_hint
+gtk_tree_view_column_get_cell_data_hint
+<SUBSECTION>
 gtk_tree_view_column_cell_set_cell_data
 gtk_tree_view_column_cell_get_size
 gtk_tree_view_column_cell_get_position
@@ -5818,7 +5840,13 @@ gtk_widget_get_realized
 gtk_widget_set_mapped
 gtk_widget_get_mapped
 gtk_widget_get_requisition
-
+<SUBSECTION Hildon>
+HildonSizeType
+hildon_gtk_widget_set_theme_size
+gtk_widget_tap_and_hold_flags_get_type
+gtk_widget_tap_and_hold_menu_position_top
+gtk_widget_tap_and_hold_setup
+gtk_widget_insensitive_press
 <SUBSECTION>
 gtk_requisition_copy
 gtk_requisition_free
@@ -5944,6 +5972,9 @@ gtk_window_get_opacity
 gtk_window_set_opacity
 gtk_window_get_mnemonics_visible
 gtk_window_set_mnemonics_visible
+gtk_window_set_is_temporary
+gtk_window_get_is_temporary
+gtk_window_close_other_temporaries
 <SUBSECTION Standard>
 GTK_WINDOW
 GTK_IS_WINDOW
@@ -6586,7 +6617,8 @@ GtkWindowPosition
 GtkWindowType
 GtkSortType
 GtkDragResult
-
+<SUBSECTION Hildon>
+GtkInvalidInputType
 <SUBSECTION Private>
 GtkMenuCallback
 GtkMenuEntry

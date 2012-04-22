@@ -159,6 +159,23 @@ void     gtk_dialog_set_has_separator (GtkDialog *dialog,
 gboolean gtk_dialog_get_has_separator (GtkDialog *dialog);
 #endif
 
+#ifdef MAEMO_CHANGES
+void     gtk_dialog_set_padding (GtkDialog *dialog,
+                                  guint      padding_top,
+                                  guint      padding_bottom,
+                                  guint      padding_left,
+                                  guint padding_right);
+void     gtk_dialog_get_padding (GtkDialog *dialog,
+                                  guint     *padding_top,
+                                  guint     *padding_bottom,
+                                  guint     *padding_left,
+                                  guint     *padding_right);
+
+void     gtk_dialog_set_inner_spacing (GtkDialog *dialog,
+                                        guint inner_spacing);
+guint    gtk_dialog_get_inner_spacing (GtkDialog *dialog);
+#endif /* MAEMO_CHANGES */
+
 gboolean gtk_alternative_dialog_button_order (GdkScreen *screen);
 void     gtk_dialog_set_alternative_button_order (GtkDialog *dialog,
 						  gint       first_response_id,

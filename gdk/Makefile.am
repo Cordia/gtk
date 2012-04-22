@@ -168,6 +168,7 @@ gdkinclude_HEADERS = $(gdk_public_h_sources) $(gdk_built_public_sources)
 common_sources =                \
 	$(gdk_private_headers)      \
     $(gdk_c_sources)	\
+	composite_arm_neon_asm.S \
 	gdkenumtypes.c		\
 	gdkmarshalers.c		\
 	gdkmarshalers.h

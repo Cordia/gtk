@@ -35,6 +35,10 @@
 
 #define LABEL_PAD 1
 #define LABEL_SIDE_PAD 2
+#ifdef MAEMO_CHANGES
+#define LABEL_BACKGROUND_PAD 8
+#define TITLE_HEIGHT 35
+#endif /* MAEMO_CHANGES */
 
 enum {
   PROP_0,
@@ -114,7 +118,11 @@ gtk_frame_class_init (GtkFrameClass *class)
 						       P_("The horizontal alignment of the label"),
 						       0.0,
 						       1.0,
+#ifdef MAEMO_CHANGES
+                                                       0.5,
+#else
 						       0.0,
+#endif
 						       GTK_PARAM_READWRITE));
   g_object_class_install_property (gobject_class,
 				   PROP_LABEL_YALIGN,
@@ -184,7 +192,11 @@ gtk_frame_init (GtkFrame *frame)
 {
   frame->label_widget = NULL;
   frame->shadow_type = GTK_SHADOW_ETCHED_IN;
+#ifdef MAEMO_CHANGES
+  frame->label_xalign = 0.5;
+#else
   frame->label_xalign = 0.0;
+#endif /* MAEMO_CHANGES */
   frame->label_yalign = 0.5;
 }
 
@@ -324,6 +336,9 @@ gtk_frame_set_label (GtkFrame *frame,
   else
     {
       GtkWidget *child = gtk_label_new (label);
+#ifdef MAEMO_CHANGES
+      gtk_widget_set_size_request (child, -1, TITLE_HEIGHT);
+#endif
       gtk_widget_show (child);
 
       gtk_frame_set_label_widget (frame, child);
@@ -552,6 +567,9 @@ gtk_frame_paint (GtkWidget    *widget,
 	  gfloat xalign;
 	  gint height_extra;
 	  gint x2;
+#ifdef MAEMO_CHANGES
+          gint label_y;
+#endif /* MAEMO_CHANGES */
 
 	  gtk_widget_get_child_requisition (frame->label_widget, &child_requisition);
 
@@ -560,6 +578,9 @@ gtk_frame_paint (GtkWidget    *widget,
 	  else
 	    xalign = 1 - frame->label_xalign;
 
+#ifdef MAEMO_CHANGES
+          label_y = MAX (0, y - child_requisition.height - widget->style->ythickness);
+#endif /* MAEMO_CHANGES */
 	  height_extra = MAX (0, child_requisition.height - widget->style->ythickness)
 	    - frame->label_yalign * child_requisition.height;
 	  y -= height_extra;
@@ -580,6 +601,22 @@ gtk_frame_paint (GtkWidget    *widget,
 				  x, y, width, height,
 				  GTK_POS_TOP,
 				  x2, child_requisition.width + 2 * LABEL_PAD);
+
+#ifdef MAEMO_CHANGES
+          /* Paint label background */
+          gtk_paint_box (widget->style, widget->window,
+                         widget->state, GTK_SHADOW_NONE,
+                         area, widget, "frame-label-background",
+                         x, label_y,
+                         width, child_requisition.height);
+
+          gtk_paint_box (widget->style, widget->window,
+                         widget->state, GTK_SHADOW_NONE,
+                         area, widget, "frame-label",
+                         x + x2 - LABEL_BACKGROUND_PAD, label_y,
+                         child_requisition.width + 2 * LABEL_BACKGROUND_PAD,
+                         child_requisition.height);
+#endif /* MAEMO_CHANGES */
 	}
        else
 	 gtk_paint_shadow (widget->style, widget->window,

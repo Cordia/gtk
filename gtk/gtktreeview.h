@@ -111,7 +111,13 @@ struct _GtkTreeViewClass
   void (*_gtk_reserved1) (void);
   void (*_gtk_reserved2) (void);
   void (*_gtk_reserved3) (void);
+
+#ifdef MAEMO_CHANGES
+  void     (* row_insensitive)            (GtkTreeView       *tree_view,
+                                           GtkTreePath       *path);
+#else
   void (*_gtk_reserved4) (void);
+#endif /* MAEMO_CHANGES */
 };
 
 
@@ -134,6 +140,13 @@ typedef gboolean (*GtkTreeViewRowSeparatorFunc) (GtkTreeModel      *model,
 typedef void     (*GtkTreeViewSearchPositionFunc) (GtkTreeView  *tree_view,
 						   GtkWidget    *search_dialog,
 						   gpointer      user_data);
+
+#ifdef MAEMO_CHANGES
+typedef gboolean (*HildonTreeViewRowHeaderFunc) (GtkTreeModel      *model,
+					         GtkTreeIter       *iter,
+                                                 gchar            **header_text,
+					         gpointer           data);
+#endif /* MAEMO_CHANGES */
 
 
 /* Creators */
@@ -391,6 +404,29 @@ void                        gtk_tree_view_set_row_separator_func (GtkTreeView   
 								  GtkTreeViewRowSeparatorFunc func,
 								  gpointer                    data,
 								  GDestroyNotify              destroy);
+
+#ifdef MAEMO_CHANGES
+HildonTreeViewRowHeaderFunc hildon_tree_view_get_row_header_func (GtkTreeView                 *tree_view);
+void                        hildon_tree_view_set_row_header_func (GtkTreeView                 *tree_view,
+                                                                  HildonTreeViewRowHeaderFunc  func,
+                                                                  gpointer                     data,
+                                                                  GDestroyNotify               destroy);
+
+HildonUIMode                hildon_tree_view_get_hildon_ui_mode  (GtkTreeView                 *tree_view);
+void                        hildon_tree_view_set_hildon_ui_mode  (GtkTreeView                 *tree_view,
+                                                                  HildonUIMode                 mode);
+
+
+void                        hildon_tree_view_set_action_area_visible       (GtkTreeView    *tree_view,
+                                                                            gboolean        visible);
+gboolean                    hildon_tree_view_get_action_area_visible       (GtkTreeView    *tree_view);
+
+void                        hildon_tree_view_set_action_area_orientation   (GtkTreeView    *tree_view,
+                                                                            GtkOrientation  orientation);
+GtkOrientation              hildon_tree_view_get_action_area_orientation   (GtkTreeView    *tree_view);
+
+GtkWidget                  *hildon_tree_view_get_action_area_box           (GtkTreeView    *tree_view);
+#endif /* MAEMO_CHANGES */
 
 GtkTreeViewGridLines        gtk_tree_view_get_grid_lines         (GtkTreeView                *tree_view);
 void                        gtk_tree_view_set_grid_lines         (GtkTreeView                *tree_view,

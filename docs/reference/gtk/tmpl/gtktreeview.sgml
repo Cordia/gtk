@@ -117,6 +117,14 @@ internal GtkTreeSelection in UI definitions.
 @arg3: 
 @Returns: 
 
+<!-- ##### SIGNAL GtkTreeView::hildon-row-tapped ##### -->
+<para>
+
+</para>
+
+@treeview: the object which received the signal.
+@arg1: 
+
 <!-- ##### SIGNAL GtkTreeView::move-cursor ##### -->
 <para>
 
@@ -153,6 +161,14 @@ internal GtkTreeSelection in UI definitions.
 @tree_view: the object which received the signal.
 @arg1: 
 @arg2: 
+
+<!-- ##### SIGNAL GtkTreeView::row-insensitive ##### -->
+<para>
+
+</para>
+
+@treeview: the object which received the signal.
+@arg1: 
 
 <!-- ##### SIGNAL GtkTreeView::select-all ##### -->
 <para>
@@ -232,6 +248,16 @@ internal GtkTreeSelection in UI definitions.
 @tree_view: the object which received the signal.
 @Returns: 
 
+<!-- ##### ARG GtkTreeView:action-area-orientation ##### -->
+<para>
+
+</para>
+
+<!-- ##### ARG GtkTreeView:action-area-visible ##### -->
+<para>
+
+</para>
+
 <!-- ##### ARG GtkTreeView:enable-grid-lines ##### -->
 <para>
 
@@ -268,6 +294,11 @@ internal GtkTreeSelection in UI definitions.
 </para>
 
 <!-- ##### ARG GtkTreeView:headers-visible ##### -->
+<para>
+
+</para>
+
+<!-- ##### ARG GtkTreeView:hildon-ui-mode ##### -->
 <para>
 
 </para>
@@ -368,6 +399,16 @@ internal GtkTreeSelection in UI definitions.
 </para>
 
 <!-- ##### ARG GtkTreeView:row-ending-details ##### -->
+<para>
+
+</para>
+
+<!-- ##### ARG GtkTreeView:row-height ##### -->
+<para>
+
+</para>
+
+<!-- ##### ARG GtkTreeView:separator-height ##### -->
 <para>
 
 </para>

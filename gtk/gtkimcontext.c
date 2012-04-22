@@ -100,6 +100,19 @@
  * in order for the new input method to become available to GTK+ applications.
  */
 
+#ifdef MAEMO_CHANGES
+typedef struct _GtkIMContextPrivate GtkIMContextPrivate;
+
+#define GTK_IM_CONTEXT_GET_PRIVATE(obj) \
+  (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
+   GTK_TYPE_IM_CONTEXT, GtkIMContextPrivate))
+
+enum {
+  PROP_HILDON_INPUT_MODE = 1,
+  PROP_HILDON_INPUT_DEFAULT
+};
+#endif /* MAEMO_CHANGES */
+
 enum {
   PREEDIT_START,
   PREEDIT_END,
@@ -107,10 +120,36 @@ enum {
   COMMIT,
   RETRIEVE_SURROUNDING,
   DELETE_SURROUNDING,
+#ifdef MAEMO_CHANGES
+  HAS_SELECTION,
+  CLIPBOARD_OPERATION,
+#endif /* MAEMO_CHANGES */
   LAST_SIGNAL
 };
 
+#ifdef MAEMO_CHANGES
+struct _GtkIMContextPrivate {
+  HildonGtkInputMode mode;
+  HildonGtkInputMode default_mode;
+};
+#endif /* MAEMO_CHANGES */
+
 static guint im_context_signals[LAST_SIGNAL] = { 0 };
+
+#ifdef MAEMO_CHANGES
+static void     gtk_im_context_set_property            (GObject        *object,
+                                                        guint           property_id,
+                                                        const GValue   *value,
+                                                        GParamSpec     *pspec);
+static void     gtk_im_context_get_property            (GObject        *object,
+                                                        guint           property_id,
+                                                        GValue         *value,
+                                                        GParamSpec     *pspec);
+
+static gboolean gtk_im_context_real_filter_event       (GtkIMContext   *context,
+							GdkEvent       *event);
+
+#endif /* MAEMO_CHANGES */
 
 static void     gtk_im_context_real_get_preedit_string (GtkIMContext   *context,
 							gchar         **str,
@@ -188,10 +227,23 @@ G_DEFINE_ABSTRACT_TYPE (GtkIMContext, gtk_im_context, G_TYPE_OBJECT)
 static void
 gtk_im_context_class_init (GtkIMContextClass *klass)
 {
+#ifdef MAEMO_CHANGES
+  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+#endif /* MAEMO_CHANGES */
+
   klass->get_preedit_string = gtk_im_context_real_get_preedit_string;
   klass->filter_keypress = gtk_im_context_real_filter_keypress;
   klass->get_surrounding = gtk_im_context_real_get_surrounding;
   klass->set_surrounding = gtk_im_context_real_set_surrounding;
+
+#ifdef MAEMO_CHANGES
+  klass->filter_event = gtk_im_context_real_filter_event;
+
+  gobject_class->set_property = gtk_im_context_set_property;
+  gobject_class->get_property = gtk_im_context_get_property;
+
+  g_type_class_add_private (klass, sizeof(GtkIMContextPrivate));
+#endif /* MAEMO_CHANGES */
 
   /**
    * GtkIMContext::preedit-start:
@@ -300,12 +352,138 @@ gtk_im_context_class_init (GtkIMContextClass *klass)
                   G_TYPE_BOOLEAN, 2,
                   G_TYPE_INT,
 		  G_TYPE_INT);
+
+#ifdef MAEMO_CHANGES
+
+  /**
+   * GtkIMContext::has-selection:
+   * @context: a #GtkIMContext
+   *
+   * This signal is emitted when input context needs to know if there is
+   * any text selected in the widget. Return TRUE if there is.
+   *
+   * Since: maemo 2.0
+   * Stability: Unstable
+   **/
+  im_context_signals[HAS_SELECTION] =
+    g_signal_new ("has_selection",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_LAST,
+                  G_STRUCT_OFFSET (GtkIMContextClass, has_selection),
+                  NULL, NULL,
+                  _gtk_marshal_BOOLEAN__VOID,
+                  G_TYPE_BOOLEAN, 0);
+  /**
+   * GtkIMContext::clipboard-operation:
+   * @context: a #GtkIMContext
+   * @operation: a #GtkIMContextClipboardOperation
+   *
+   * This signal is emitted when input context wants to copy, cut or paste
+   * text. The widget needs to implement these operations.
+   *
+   * Since: maemo 2.0
+   * Stability: Unstable
+   **/
+  im_context_signals[CLIPBOARD_OPERATION] =
+    g_signal_new ("clipboard_operation",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_LAST,
+                  G_STRUCT_OFFSET (GtkIMContextClass, clipboard_operation),
+                  NULL, NULL,
+                  _gtk_marshal_VOID__ENUM,
+                  G_TYPE_NONE, 1, GTK_TYPE_IM_CONTEXT_CLIPBOARD_OPERATION);
+
+  /**
+   * GtkIMContext:hildon-input-mode:
+   *
+   * Allowed characters and input mode for this IM context.
+   * See #HildonGtkInputMode.
+   *
+   * Since: maemo 2.0
+   * Stability: Unstable
+   **/
+  g_object_class_install_property (gobject_class,
+				   PROP_HILDON_INPUT_MODE,
+				   g_param_spec_flags ("hildon-input-mode",
+						       "Hildon input mode",
+						       "Allowed characters and input mode",
+						       HILDON_TYPE_GTK_INPUT_MODE,
+						       HILDON_GTK_INPUT_MODE_FULL |
+						       HILDON_GTK_INPUT_MODE_AUTOCAP |
+						       HILDON_GTK_INPUT_MODE_DICTIONARY,
+						       G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+
+  /**
+   * GtkIMContext:hildon-input-default:
+   *
+   * Default input mode for this IM context.  See #HildonGtkInputMode.
+   * The default setting for this property is %HILDON_GTK_INPUT_MODE_FULL,
+   * which means that the default input mode to be used is up to the
+   * implementation of the IM context.
+   *
+   * Since: maemo 5.0
+   **/
+  g_object_class_install_property (gobject_class,
+				   PROP_HILDON_INPUT_DEFAULT,
+				   g_param_spec_flags ("hildon-input-default",
+						       "Hildon input default",
+						       "Default input mode",
+						       HILDON_TYPE_GTK_INPUT_MODE,
+						       HILDON_GTK_INPUT_MODE_FULL,
+						       G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+#endif /* MAEMO_CHANGES */
 }
 
 static void
 gtk_im_context_init (GtkIMContext *im_context)
 {
 }
+
+#ifdef MAEMO_CHANGES
+static void
+gtk_im_context_set_property (GObject      *object,
+                             guint         property_id,
+                             const GValue *value,
+                             GParamSpec   *pspec)
+{
+  GtkIMContextPrivate *priv = GTK_IM_CONTEXT_GET_PRIVATE (object);
+
+  switch (property_id)
+    {
+      case PROP_HILDON_INPUT_MODE:
+        priv->mode = g_value_get_flags (value);
+        break;
+      case PROP_HILDON_INPUT_DEFAULT:
+        priv->default_mode = g_value_get_flags (value);
+        break;
+      default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+        break;
+    }
+}
+
+static void
+gtk_im_context_get_property (GObject    *object,
+                             guint       property_id,
+                             GValue     *value,
+                             GParamSpec *pspec)
+{
+  GtkIMContextPrivate *priv = GTK_IM_CONTEXT_GET_PRIVATE (object);
+
+  switch (property_id)
+    {
+      case PROP_HILDON_INPUT_MODE:
+        g_value_set_flags (value, priv->mode);
+        break;
+      case PROP_HILDON_INPUT_DEFAULT:
+        g_value_set_flags (value, priv->default_mode);
+        break;
+      default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+        break;
+    }
+}
+#endif /* MAEMO_CHANGES */
 
 static void
 gtk_im_context_real_get_preedit_string (GtkIMContext       *context,
@@ -327,6 +505,15 @@ gtk_im_context_real_filter_keypress (GtkIMContext       *context,
 {
   return FALSE;
 }
+
+#ifdef MAEMO_CHANGES
+static gboolean
+gtk_im_context_real_filter_event    (GtkIMContext       *context,
+				     GdkEvent           *event)
+{
+  return FALSE;
+}
+#endif /* MAEMO_CHANGES */
 
 typedef struct
 {
@@ -709,6 +896,213 @@ gtk_im_context_delete_surrounding (GtkIMContext *context,
 
   return result;
 }
+
+#ifdef MAEMO_CHANGES
+
+/**
+ * hildon_gtk_im_context_filter_event:
+ * @context: a #GtkIMContext
+ * @event: the event
+ *
+ * Allow an input method to internally handle an event.
+ * If this function returns %TRUE, then no further processing
+ * should be done for this event.
+ *
+ * <note><para>
+ * Input methods must be able to accept all types of events (simply
+ * returning %FALSE if the event was not handled), but there is no
+ * obligation for a widget to submit any events to this function.
+ * </para><para>
+ * Widget events that are recommended to be run through this function
+ * are %GDK_BUTTON_PRESS, %GDK_BUTTON_RELEASE, %GDK_2BUTTON_PRESS,
+ * %GDK_3BUTTON_PRESS, %GDK_KEY_PRESS and %GDK_KEY_RELEASE.
+ * </para><para>
+ * Note that if the event passes the filter with the function returning
+ * %FALSE, the widget still needs to process the event itself, this can
+ * include calling gtk_im_context_focus_in(), gtk_im_context_focus_out()
+ * or gtk_im_context_filter_keypress() for focus and keypress events
+ * where applicable.
+ * </para></note>
+ *
+ * Return value: %TRUE if the input method handled the event.
+ *
+ * Since: maemo 2.0
+ * Stability: Unstable
+ */
+gboolean hildon_gtk_im_context_filter_event (GtkIMContext   *context,
+                                             GdkEvent        *event)
+{
+  GtkIMContextClass *klass;
+
+  g_return_val_if_fail (GTK_IS_IM_CONTEXT (context), FALSE);
+  g_return_val_if_fail (event != NULL, FALSE);
+
+  klass = GTK_IM_CONTEXT_GET_CLASS (context);
+  return klass->filter_event (context, event);
+}
+
+/**
+ * gtk_im_context_show:
+ * @context: a #GtkIMContext
+ *
+ * Notify the input method that widget thinks the actual
+ * input method show be opened.
+ *
+ * Since: maemo 1.0
+ * Stability: Unstable
+ *
+ * Deprecated: Use hildon_gtk_im_context_show() instead.
+ **/
+void
+gtk_im_context_show (GtkIMContext *context)
+{
+  hildon_gtk_im_context_show (context);
+}
+
+/**
+ * gtk_im_context_hide:
+ * @context: a #GtkIMContext
+ *
+ * Notify the input method that widget thinks the actual
+ * input method show be closed.
+ *
+ * Since: maemo 1.0
+ * Stability: Unstable
+ *
+ * Deprecated: Use hildon_gtk_im_context_hide() instead.
+ **/
+void
+gtk_im_context_hide (GtkIMContext *context)
+{
+  hildon_gtk_im_context_hide (context);
+}
+
+/**
+ * hildon_gtk_im_context_show:
+ * @context: a #GtkIMContext
+ *
+ * Notify the input method that widget thinks the actual
+ * input method show be opened.
+ *
+ * Since: maemo 2.0
+ * Stability: Unstable
+ **/
+void
+hildon_gtk_im_context_show (GtkIMContext *context)
+{
+  GtkIMContextClass *klass;
+
+  g_return_if_fail (GTK_IS_IM_CONTEXT (context));
+
+  klass = GTK_IM_CONTEXT_GET_CLASS (context);
+  if (klass->show)
+    klass->show (context);
+}
+
+/**
+ * hildon_gtk_im_context_hide:
+ * @context: a #GtkIMContext
+ *
+ * Notify the input method that widget thinks the actual
+ * input method show be closed.
+ *
+ * Since: maemo 2.0
+ * Stability: Unstable
+ **/
+void
+hildon_gtk_im_context_hide (GtkIMContext *context)
+{
+  GtkIMContextClass *klass;
+
+  g_return_if_fail (GTK_IS_IM_CONTEXT (context));
+
+  klass = GTK_IM_CONTEXT_GET_CLASS (context);
+  if (klass->hide)
+    klass->hide (context);
+}
+
+/**
+ * hildon_gtk_im_context_has_selection:
+ * @context: a #GtkIMContext
+ *
+ * Returns TRUE if the widget attached to this input context has some
+ * text selected in it.
+ *
+ * Since: maemo 2.0
+ * Stability: Unstable
+ **/
+gboolean
+hildon_gtk_im_context_has_selection (GtkIMContext *context)
+{
+  gboolean result = FALSE;
+
+  g_return_val_if_fail (GTK_IS_IM_CONTEXT (context), 0);
+
+  g_signal_emit (context,
+		 im_context_signals[HAS_SELECTION], 0,
+		 &result);
+
+  return result;
+}
+
+/**
+ * hildon_gtk_im_context_copy:
+ * @context: a #GtkIMContext
+ *
+ * Requests from the widget attached to this input context that the
+ * selected text in it is copied to clipboard.
+ *
+ * Since: maemo 2.0
+ * Stability: Unstable
+ **/
+void
+hildon_gtk_im_context_copy (GtkIMContext *context)
+{
+  g_return_if_fail (GTK_IS_IM_CONTEXT (context));
+
+  g_signal_emit (context, im_context_signals[CLIPBOARD_OPERATION], 0,
+                 GTK_IM_CONTEXT_CLIPBOARD_OP_COPY);
+}
+
+/**
+ * hildon_gtk_im_context_cut:
+ * @context: a #GtkIMContext
+ *
+ * Requests from the widget attached to this input context that the
+ * selected text is cut and copied to clipboard.
+ *
+ * Since: maemo 2.0
+ * Stability: Unstable
+ **/
+void
+hildon_gtk_im_context_cut (GtkIMContext *context)
+{
+  g_return_if_fail (GTK_IS_IM_CONTEXT (context));
+
+  g_signal_emit (context, im_context_signals[CLIPBOARD_OPERATION], 0,
+                 GTK_IM_CONTEXT_CLIPBOARD_OP_CUT);
+}
+
+/**
+ * hildon_gtk_im_context_paste:
+ * @context: a #GtkIMContext
+ *
+ * Requests from the widget attached to this input context that the
+ * text in clipboard is pasted to it.
+ *
+ * Since: maemo 2.0
+ * Stability: Unstable
+ **/
+void
+hildon_gtk_im_context_paste (GtkIMContext *context)
+{
+  g_return_if_fail (GTK_IS_IM_CONTEXT (context));
+
+  g_signal_emit (context, im_context_signals[CLIPBOARD_OPERATION], 0,
+                 GTK_IM_CONTEXT_CLIPBOARD_OP_PASTE);
+}
+
+#endif /* MAEMO_CHANGES */
 
 #define __GTK_IM_CONTEXT_C__
 #include "gtkaliasdef.c"

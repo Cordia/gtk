@@ -1116,6 +1116,9 @@ gtk_notebook_init (GtkNotebook *notebook)
   notebook->child_has_focus = FALSE;
   notebook->have_visible_child = FALSE;
   notebook->focus_out = FALSE;
+#ifdef MAEMO_CHANGES
+  notebook->scrollable = TRUE;
+#endif
 
   notebook->has_before_previous = 1;
   notebook->has_before_next     = 0;
@@ -4385,6 +4388,9 @@ gtk_notebook_real_insert_page (GtkNotebook *notebook,
   page->tab_label = tab_label;
   page->menu_label = menu_label;
   page->expand = FALSE;
+#ifdef MAEMO_CHANGES
+  page->expand = TRUE;
+#endif
   page->fill = TRUE;
   page->pack = GTK_PACK_START; 
 
@@ -4965,9 +4971,28 @@ gtk_notebook_paint (GtkWidget    *widget,
 	  break;
 	}
     }
+#if defined(MAEMO_CHANGES)
+  showarrow = FALSE;
+  children = gtk_notebook_search_page (notebook, NULL, step, TRUE);
+  while (children && !showarrow)
+    {
+      page = children->data;
+      children = gtk_notebook_search_page (notebook, children,
+                                           step, TRUE);
+      if (!gtk_widget_get_mapped (page->tab_label))
+        showarrow = TRUE;
+    }
+#endif
   gtk_paint_box_gap (widget->style, widget->window,
 		     GTK_STATE_NORMAL, GTK_SHADOW_OUT,
-		     area, widget, "notebook",
+		     area, widget, 
+#if defined(MAEMO_CHANGES)
+                     (showarrow && notebook->scrollable)
+                       ? "notebook_show_arrow"
+                       : "notebook",
+#else
+                     "notebook",
+#endif
 		     x, y, width, height,
 		     tab_pos, gap_x, gap_width);
 

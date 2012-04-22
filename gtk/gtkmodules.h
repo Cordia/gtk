@@ -47,6 +47,12 @@ typedef void	 (*GtkModuleInitFunc)        (gint	  *argc,
 					      gchar      ***argv);
 typedef void	 (*GtkModuleDisplayInitFunc) (GdkDisplay   *display);
 
+#ifdef MAEMO_CHANGES
+/*  Don't you dare using this function if you are not hildon-fm :-)  */
+gchar * hildon_fm_private_find_module (const gchar *name,
+                                       const gchar *type);
+#endif
+
 
 G_END_DECLS
 

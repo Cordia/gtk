@@ -524,6 +524,7 @@ serialize_text (GtkTextBuffer        *buffer,
       while (TRUE)
 	{
 	  gunichar ch = gtk_text_iter_get_char (&iter);
+          gboolean can_forward = FALSE;
 
 	  if (ch == 0xFFFC)
 	    {
@@ -537,7 +538,7 @@ serialize_text (GtkTextBuffer        *buffer,
 		  g_free (tmp_text);
 
 		  /* Forward so we don't get the 0xfffc char */
-		  gtk_text_iter_forward_char (&iter);
+		  can_forward = gtk_text_iter_forward_char (&iter);
 		  old_iter = iter;
 
 		  g_string_append (context->text_str, escaped_text);
@@ -548,15 +549,22 @@ serialize_text (GtkTextBuffer        *buffer,
 		  context->n_pixbufs++;
 		  context->pixbufs = g_list_prepend (context->pixbufs, pixbuf);
 		}
+              else
+                {
+		  /* If we cannot get the pixbuf for this iter, we skip
+                   * this one and move on.
+                   */
+		  can_forward = gtk_text_iter_forward_char (&iter);
+                }
 	    }
           else if (ch == 0)
             {
                 break;
             }
 	  else
-	    gtk_text_iter_forward_char (&iter);
+	    can_forward = gtk_text_iter_forward_char (&iter);
 
-	  if (gtk_text_iter_toggles_tag (&iter, NULL))
+	  if (!can_forward || gtk_text_iter_toggles_tag (&iter, NULL))
 	    break;
 	}
 

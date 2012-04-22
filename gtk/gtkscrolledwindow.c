@@ -363,7 +363,11 @@ static void
 gtk_scrolled_window_init (GtkScrolledWindow *scrolled_window)
 {
   gtk_widget_set_has_window (GTK_WIDGET (scrolled_window), FALSE);
+#ifdef MAEMO_CHANGES
   gtk_widget_set_can_focus (GTK_WIDGET (scrolled_window), TRUE);
+#else
+  gtk_widget_set_can_focus (GTK_WIDGET (scrolled_window), FALSE);
+#endif
 
   scrolled_window->hscrollbar = NULL;
   scrolled_window->vscrollbar = NULL;

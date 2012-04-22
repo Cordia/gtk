@@ -172,6 +172,9 @@ gint       gdk_mbstowcs          (GdkWChar         *dest,
 #ifndef GDK_MULTIHEAD_SAFE
 gboolean gdk_event_send_client_message      (GdkEvent       *event,
 					     GdkNativeWindow winid);
+#ifdef MAEMO_CHANGES
+void     gdk_close_all_temporary_windows    (void);
+#endif /* MAEMO_CHANGES */
 void     gdk_event_send_clientmessage_toall (GdkEvent  *event);
 #endif
 gboolean gdk_event_send_client_message_for_display (GdkDisplay *display,

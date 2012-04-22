@@ -160,6 +160,10 @@ void   gtk_container_set_focus_hadjustment (GtkContainer     *container,
 					    GtkAdjustment    *adjustment);
 GtkAdjustment *gtk_container_get_focus_hadjustment (GtkContainer *container);
 
+#ifdef MAEMO_CHANGES
+void    _gtk_container_post_size_allocate  (GtkContainer     *container);
+#endif
+
 void    gtk_container_resize_children      (GtkContainer     *container);
 
 GType   gtk_container_child_type	   (GtkContainer     *container);

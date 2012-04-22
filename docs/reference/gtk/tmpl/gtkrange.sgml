@@ -81,6 +81,11 @@ of the "steppers". It also provides properties and methods for setting a
 
 </para>
 
+<!-- ##### ARG GtkRange:jump-to-position ##### -->
+<para>
+
+</para>
+
 <!-- ##### ARG GtkRange:lower-stepper-sensitivity ##### -->
 <para>
 

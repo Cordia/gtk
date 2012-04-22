@@ -122,6 +122,11 @@ private fields and should not be directly accessed.
 
 </para>
 
+<!-- ##### ARG GtkIconView:hildon-ui-mode ##### -->
+<para>
+
+</para>
+
 <!-- ##### ARG GtkIconView:item-width ##### -->
 <para>
 

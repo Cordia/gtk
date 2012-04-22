@@ -290,7 +290,11 @@ check_image (CacheInfo *info,
          get_uint32 (info, offset + 4, &image_data_offset));
 
   check ("image index", index < info->n_directories);
+#ifndef MAEMO_CHANGES
   check ("image flags", flags < 16);
+#else  /* !MAEMO_CHANGES */
+  check ("image flags", flags < 32);
+#endif /* !MAEMO_CHANGES */
 
   if (image_data_offset != 0) 
     {

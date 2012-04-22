@@ -1162,6 +1162,7 @@ GdkEventFunc
 <SUBSECTION>
 gdk_event_send_client_message
 gdk_event_send_client_message_for_display
+gdk_close_all_temporary_windows
 gdk_event_send_clientmessage_toall
 gdk_add_client_message_filter
 

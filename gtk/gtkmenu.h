@@ -203,6 +203,11 @@ void       gtk_menu_set_monitor           (GtkMenu             *menu,
 gint       gtk_menu_get_monitor           (GtkMenu             *menu);
 GList*     gtk_menu_get_for_attach_widget (GtkWidget           *widget); 
 
+#ifdef MAEMO_CHANGES
+void       _gtk_menu_push_context_menu_behavior (void);
+void       _gtk_menu_pop_context_menu_behavior  (void);
+#endif /* MAEMO_CHANGES */
+
 #ifndef GTK_DISABLE_DEPRECATED
 #define gtk_menu_append(menu,child)	gtk_menu_shell_append  ((GtkMenuShell *)(menu),(child))
 #define gtk_menu_prepend(menu,child)    gtk_menu_shell_prepend ((GtkMenuShell *)(menu),(child))

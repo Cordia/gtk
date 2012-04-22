@@ -197,6 +197,12 @@ void               gtk_range_set_round_digits              (GtkRange      *range
                                                             gint           round_digits);
 gint                gtk_range_get_round_digits             (GtkRange      *range);
 
+#ifdef MAEMO_CHANGES
+void               gtk_range_set_jump_to_position          (GtkRange      *range,
+                                                            gboolean       jump_to_position);
+gboolean           gtk_range_get_jump_to_position          (GtkRange      *range);
+#endif
+
 
 /* internal API */
 gdouble            _gtk_range_get_wheel_delta              (GtkRange      *range,

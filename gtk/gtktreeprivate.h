@@ -28,7 +28,11 @@ G_BEGIN_DECLS
 #include <gtk/gtktreeselection.h>
 #include <gtk/gtkrbtree.h>
 
+#ifdef MAEMO_CHANGES
+#define TREE_VIEW_DRAG_WIDTH 28
+#else /* !MAEMO_CHANGES */
 #define TREE_VIEW_DRAG_WIDTH 6
+#endif /* !MAEMO_CHANGES */
 
 typedef enum
 {
@@ -259,6 +263,39 @@ struct _GtkTreeViewPrivate
 
   /* Tooltip support */
   gint tooltip_column;
+
+#ifdef MAEMO_CHANGES
+  /* Fields for Maemo specific functionality */
+  GtkTreeRowReference *queued_select_row;
+  GtkTreeRowReference *queued_expand_row;
+  GtkTreeRowReference *queued_activate_row;
+  GtkTreeRowReference *queued_tapped_row;
+
+  GtkRBNode *highlighted_node;
+  GtkRBTree *highlighted_tree;
+
+  GtkTreeCellDataHint cell_data_hint;
+
+  HildonUIMode hildon_ui_mode;
+  HildonMode hildon_mode;
+
+  GdkPixbuf *tickmark_icon;
+
+  HildonTreeViewRowHeaderFunc row_header_func;
+  gpointer row_header_data;
+  GDestroyNotify row_header_destroy;
+  PangoLayout *row_header_layout;
+
+  gint rows_offset;
+  GtkOrientation action_area_orientation;
+  GtkWidget *action_area_event_box;
+  GtkWidget *action_area_box;
+
+  guint queued_extend_selection_pressed : 1;
+  guint queued_modify_selection_pressed : 1;
+
+  guint action_area_visible : 1;
+#endif /* MAEMO_CHANGES */
 
   /* Here comes the bitfield */
   guint scroll_to_use_align : 1;

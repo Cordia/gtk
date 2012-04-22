@@ -513,6 +513,19 @@ that is, GUI components such as #GtkButton or #GtkTextView.
     <xi:include href="xml/api-index-2.24.xml"><xi:fallback /></xi:include>
   </index>
 
+  <index role="maemo 1.0">
+    <title>Index of new symbols in Maemo 1.0</title>
+  </index>
+  <index role="maemo 2.0">
+    <title>Index of new symbols in Maemo 2.x (mistral/scirocco/gregale)</title>
+  </index>
+  <index role="maemo 3.0">
+    <title>Index of new symbols in Maemo 3.x (bora)</title>
+  </index>
+  <index role="maemo 4.0">
+    <title>Index of new symbols in Maemo 4.x</title>
+  </index>
+
   <xi:include href="xml/annotation-glossary.xml"><xi:fallback /></xi:include>
 
 </book>

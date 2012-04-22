@@ -382,6 +382,15 @@ arrow_button_button_press_event_cb (GtkWidget         *widget,
     }
 }
 
+#ifdef MAEMO_CHANGES
+static void
+arrow_button_insensitive_press (GtkWidget *widget,
+                                GtkWidget *button)
+{
+  gtk_widget_insensitive_press (button);
+}
+#endif /* MAEMO_CHANGES */
+
 static void
 gtk_menu_tool_button_init (GtkMenuToolButton *button)
 {
@@ -424,6 +433,10 @@ gtk_menu_tool_button_init (GtkMenuToolButton *button)
 		    G_CALLBACK (arrow_button_toggled_cb), button);
   g_signal_connect (arrow_button, "button-press-event",
 		    G_CALLBACK (arrow_button_button_press_event_cb), button);
+#ifdef MAEMO_CHANGES
+  g_signal_connect (arrow_button, "insensitive_press",
+                    G_CALLBACK (arrow_button_insensitive_press), button);
+#endif /* MAEMO_CHANGES */
 }
 
 static void

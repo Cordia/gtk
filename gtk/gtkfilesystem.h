@@ -22,7 +22,7 @@
 #define __GTK_FILE_SYSTEM_H__
 
 #include <gio/gio.h>
-#include <gtk/gtkwidget.h>	/* For icon handling */
+#include <gtk/gtk.h>	/* For icon handling */
 
 G_BEGIN_DECLS
 

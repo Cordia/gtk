@@ -24,7 +24,19 @@ if USE_X11
 testsocket_programs = testsocket testsocket_child
 endif
 
-noinst_PROGRAMS =  $(TEST_PROGS)	\
+if MAEMO_CHANGES
+testmaemo_programs =			\
+	testhildontreeview		\
+	testhildoniconview		\
+	testtreeviewactionarea
+endif
+
+TESTS = floatingtest buildertest
+
+noinst_PROGRAMS =			\
+	autotestfilechooser		\
+	floatingtest			\
+	buildertest			\
 	simple				\
 	flicker				\
 	print-editor			\
@@ -50,6 +62,7 @@ noinst_PROGRAMS =  $(TEST_PROGS)	\
 	testicontheme			\
 	testimage			\
 	testinput			\
+	$(testmaemo_programs)		\
 	testmenus			\
 	testmenubars			\
 	testmountoperation		\
@@ -71,6 +84,7 @@ noinst_PROGRAMS =  $(TEST_PROGS)	\
 	testspinbutton			\
 	teststatusicon			\
 	testtext			\
+	testtextbuffer			\
 	testtoolbar			\
 	stresstest-toolbar		\
 	testtreeedit			\
@@ -92,7 +106,7 @@ noinst_PROGRAMS =  $(TEST_PROGS)	\
 
 if HAVE_CXX
 noinst_PROGRAMS += autotestkeywords
-TESTS = autotestkeywords
+TESTS += autotestkeywords
 
 autotestkeywords_SOURCES = autotestkeywords.cc
 autotestkeywords_CPPFLAGS = -I$(srcdir)/dummy-headers
@@ -104,7 +118,10 @@ endif
 endif
 
 flicker_DEPENDENCIES = $(TEST_DEPS)
+autotestfilechooser_DEPENDENCIES = $(TEST_DEPS)
 simple_DEPENDENCIES = $(TEST_DEPS)
+floatingtest_DEPENDENCIES = $(TEST_DEPS)
+buildertest_DEPENDENCIES = $(TEST_DEPS)
 print_editor_DEPENDENCIES = $(TEST_DEPS)
 testicontheme_DEPENDENCIES = $(TEST_DEPS)
 testiconview_DEPENDENCIES = $(TEST_DEPS)
@@ -149,6 +166,7 @@ testsocket_child_DEPENDENCIES = $(DEPS)
 testspinbutton_DEPENDENCIES = $(TEST_DEPS)
 teststatusicon_DEPENDENCIES = $(TEST_DEPS)
 testtext_DEPENDENCIES = $(TEST_DEPS)
+testtextbuffer_DEPENDENCIES = $(TEST_DEPS)
 testtreeedit_DEPENDENCIES = $(DEPS)
 testtreemodel_DEPENDENCIES = $(DEPS)
 testtreeview_DEPENDENCIES = $(DEPS)
@@ -165,9 +183,15 @@ testgrouping_DEPENDENCIES = $(TEST_DEPS)
 testtooltips_DEPENDENCIES = $(TEST_DEPS)
 testvolumebutton_DEPENDENCIES = $(TEST_DEPS)
 testwindows_DEPENDENCIES = $(TEST_DEPS)
+testhildoniconview_DEPENDENCIES = $(TEST_DEPS)
+testhildontreeview_DEPENDENCIES = $(TEST_DEPS)
+testtreeviewactionarea_DEPENDENCIES = $(TEST_DEPS)
 
 flicker_LDADD = $(LDADDS)
+autotestfilechooser_LDADD = $(LDADDS)
 simple_LDADD = $(LDADDS)
+floatingtest_LDADD = $(LDADDS)
+buildertest_LDADD = $(LDADDS)
 print_editor_LDADD = $(LDADDS)
 testaccel_LDADD = $(LDADDS)
 testassistant_LDADD = $(LDADDS)
@@ -212,6 +236,7 @@ testsocket_LDADD = $(LDADDS)
 testsocket_child_LDADD = $(LDADDS)
 testspinbutton_LDADD = $(LDADDS)
 teststatusicon_LDADD = $(LDADDS)
+testtextbuffer_LDADD = $(LDADDS)
 testtoolbar_LDADD = $(LDADDS)
 stresstest_toolbar_LDADD = $(LDADDS)
 testtreeedit_LDADD = $(LDADDS)
@@ -231,6 +256,9 @@ testgrouping_LDADD = $(LDADDS)
 testtooltips_LDADD = $(LDADDS)
 testvolumebutton_LDADD = $(LDADDS)
 testwindows_LDADD = $(LDADDS)
+testhildoniconview_LDADD = $(LDADDS)
+testhildontreeview_LDADD = $(LDADDS)
+testtreeviewactionarea_LDADD = $(LDADDS)
 
 
 testentrycompletion_SOURCES = 	\
@@ -339,6 +367,15 @@ testoffscreenwindow_SOURCES =	\
 
 testwindows_SOURCES = 	\
 	testwindows.c
+
+testhildoniconview_SOURCES = \
+	testhildoniconview.c
+
+testhildontreeview_SOURCES = \
+	testhildontreeview.c
+
+testtreeviewactionarea_SOURCES =	\
+	testtreeviewactionarea.c
 
 EXTRA_DIST += 			\
 	prop-editor.h		\

@@ -368,6 +368,28 @@ gdk_event_send_client_message (GdkEvent        *event,
 						    event, winid);
 }
 
+#ifdef MAEMO_CHANGES
+/**
+ * gdk_close_all_temporary_windows:
+ * 
+ * Sends a _GTK_DELETE_TEMPORARIES ClientEvent to all toplevel windows
+ *
+ * Since: maemo 4.0
+ * Stability: Unstable
+ */
+void
+gdk_close_all_temporary_windows (void)
+{
+  GdkEventClient client;
+
+  memset(&client, 0, sizeof(client));
+  client.message_type = gdk_atom_intern ("_GTK_DELETE_TEMPORARIES", FALSE);
+  client.data_format = 32;
+
+  gdk_event_send_clientmessage_toall ((GdkEvent*)&client);
+}
+#endif /* MAEMO_CHANGES */
+
 /**
  * gdk_event_send_clientmessage_toall:
  * @event: the #GdkEvent to send, which should be a #GdkEventClient.

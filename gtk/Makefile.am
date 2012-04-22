@@ -374,6 +374,7 @@ gtk_private_h_sources =		\
 	gtkfilechooserutils.h	\
 	gtkfilesystem.h		\
 	gtkfilesystemmodel.h	\
+	gtkimcontextsimpleseqs.h \
 	gtkiconcache.h		\
 	gtkimcontextsimpleseqs.h   \
 	gtkintl.h		\

@@ -22,7 +22,7 @@
 #define __GTK_FILE_CHOOSER_DEFAULT_H__
 
 #include "gtkfilesystem.h"
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 
 G_BEGIN_DECLS
 

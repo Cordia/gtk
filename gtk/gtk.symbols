@@ -1340,6 +1340,9 @@ gtk_style_detach
 gtk_style_get_type G_GNUC_CONST
 gtk_style_lookup_icon_set
 gtk_style_lookup_color
+#ifdef MAEMO_CHANGES
+gtk_style_lookup_logical_color
+#endif
 gtk_style_new
 gtk_style_render_icon
 gtk_style_set_background
@@ -1452,6 +1455,14 @@ gtk_entry_prepend_text
 gtk_entry_select_region
 gtk_entry_set_editable
 gtk_entry_set_position
+#endif
+#ifdef MAEMO_CHANGES
+hildon_gtk_entry_get_input_default
+hildon_gtk_entry_get_input_mode
+hildon_gtk_entry_set_input_default
+hildon_gtk_entry_set_input_mode
+hildon_gtk_entry_get_placeholder_text
+hildon_gtk_entry_set_placeholder_text
 #endif
 #endif
 #endif
@@ -2112,6 +2123,10 @@ gtk_icon_view_set_tooltip_column
 gtk_icon_view_get_tooltip_column
 gtk_icon_view_get_item_row
 gtk_icon_view_get_item_column
+#ifdef MAEMO_CHANGES
+hildon_icon_view_get_row_header_func
+hildon_icon_view_set_row_header_func
+#endif
 #endif
 #endif
 
@@ -2192,11 +2207,24 @@ gtk_im_context_focus_out
 gtk_im_context_get_preedit_string
 gtk_im_context_get_surrounding
 gtk_im_context_get_type G_GNUC_CONST
+#ifdef MAEMO_CHANGES
+gtk_im_context_hide
+#endif
 gtk_im_context_reset
 gtk_im_context_set_client_window
 gtk_im_context_set_cursor_location
 gtk_im_context_set_surrounding
 gtk_im_context_set_use_preedit
+#ifdef MAEMO_CHANGES
+gtk_im_context_show
+hildon_gtk_im_context_copy
+hildon_gtk_im_context_cut
+hildon_gtk_im_context_filter_event
+hildon_gtk_im_context_has_selection
+hildon_gtk_im_context_hide
+hildon_gtk_im_context_paste
+hildon_gtk_im_context_show
+#endif
 #endif
 #endif
 
@@ -3406,6 +3434,9 @@ gtk_range_get_lower_stepper_sensitivity
 gtk_range_get_min_slider_size
 gtk_range_get_range_rect
 gtk_range_get_restrict_to_fill_level
+#ifdef MAEMO_CHANGES
+gtk_range_get_jump_to_position
+#endif
 gtk_range_get_show_fill_level
 gtk_range_get_slider_range
 gtk_range_get_slider_size_fixed
@@ -3424,6 +3455,9 @@ gtk_range_set_lower_stepper_sensitivity
 gtk_range_set_min_slider_size
 gtk_range_set_range
 gtk_range_set_restrict_to_fill_level
+#ifdef MAEMO_CHANGES
+gtk_range_set_jump_to_position
+#endif
 gtk_range_set_show_fill_level
 gtk_range_set_slider_size_fixed
 #ifndef GTK_DISABLE_DEPRECATED
@@ -4362,6 +4396,14 @@ gtk_text_view_set_tabs
 gtk_text_view_set_wrap_mode
 gtk_text_view_starts_display_line
 gtk_text_view_window_to_buffer_coords
+#ifdef MAEMO_CHANGES
+hildon_gtk_text_view_get_input_default
+hildon_gtk_text_view_get_input_mode
+hildon_gtk_text_view_get_placeholder_text
+hildon_gtk_text_view_set_input_default
+hildon_gtk_text_view_set_input_mode
+hildon_gtk_text_view_set_placeholder_text
+#endif
 #endif
 #endif
 
@@ -5012,6 +5054,17 @@ gtk_tree_view_unset_rows_drag_source
 gtk_tree_view_widget_to_tree_coords
 #endif
 gtk_tree_view_columns_autosize
+#ifdef MAEMO_CHANGES
+hildon_tree_view_get_action_area_box
+hildon_tree_view_get_action_area_orientation
+hildon_tree_view_get_action_area_visible
+hildon_tree_view_get_hildon_ui_mode
+hildon_tree_view_get_row_header_func
+hildon_tree_view_set_action_area_orientation
+hildon_tree_view_set_action_area_visible
+hildon_tree_view_set_hildon_ui_mode
+hildon_tree_view_set_row_header_func
+#endif
 #endif
 #endif
 
@@ -5218,6 +5271,9 @@ gtk_widget_has_screen
 gtk_widget_hide
 gtk_widget_hide_all
 gtk_widget_hide_on_delete
+#ifdef MAEMO_CHANGES
+gtk_widget_insensitive_press
+#endif
 gtk_widget_intersect
 gtk_widget_is_ancestor
 gtk_widget_is_focus
@@ -5251,6 +5307,10 @@ gtk_widget_set_uposition
 gtk_widget_set_usize
 gtk_widget_ref
 gtk_widget_unref
+#endif
+#ifdef MAEMO_CHANGES
+gtk_widget_tap_and_hold_menu_position_top
+gtk_widget_tap_and_hold_setup
 #endif
 gtk_widget_queue_draw
 gtk_widget_queue_draw_area

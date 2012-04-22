@@ -155,6 +155,11 @@ This should not be accessed directly.  Use the accessor functions below.
 
 </para>
 
+<!-- ##### ARG GtkButton:tree-view-separator-area ##### -->
+<para>
+
+</para>
+
 <!-- ##### FUNCTION gtk_button_new ##### -->
 <para>
 Creates a new #GtkButton widget. To add a child widget to the button,

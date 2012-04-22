@@ -202,6 +202,11 @@ window (synonymous with gtk_window_add_accel_group().
 
 </para>
 
+<!-- ##### ARG GtkWindow:temporary ##### -->
+<para>
+
+</para>
+
 <!-- ##### ARG GtkWindow:title ##### -->
 <para>
 
@@ -1249,5 +1254,31 @@ Deprecated alias for gtk_window_set_position().
 
 @window: 
 @setting: 
+
+
+<!-- ##### FUNCTION gtk_window_set_is_temporary ##### -->
+<para>
+
+</para>
+
+@window: 
+@setting: 
+
+
+<!-- ##### FUNCTION gtk_window_get_is_temporary ##### -->
+<para>
+
+</para>
+
+@window: 
+@Returns: 
+
+
+<!-- ##### FUNCTION gtk_window_close_other_temporaries ##### -->
+<para>
+
+</para>
+
+@window: 
 
 

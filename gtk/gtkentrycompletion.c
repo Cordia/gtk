@@ -39,6 +39,10 @@
 
 #include <string.h>
 
+#if defined(MAEMO_CHANGES) && defined(GDK_WINDOWING_X11)
+#include "x11/gdkx.h"
+#include <X11/Xatom.h>
+#endif
 
 /* signals */
 enum
@@ -109,6 +113,11 @@ static gboolean gtk_entry_completion_popup_key_event     (GtkWidget          *wi
 static gboolean gtk_entry_completion_popup_button_press  (GtkWidget          *widget,
                                                           GdkEventButton     *event,
                                                           gpointer            user_data);
+#ifdef MAEMO_CHANGES
+static gboolean gtk_entry_completion_popup_delete_event  (GtkWidget               *widget,
+                                                          GdkEventAny             *event,
+                                                          gpointer                 user_data);
+#endif
 static gboolean gtk_entry_completion_list_button_press   (GtkWidget          *widget,
                                                           GdkEventButton     *event,
                                                           gpointer            user_data);
@@ -516,6 +525,12 @@ gtk_entry_completion_init (GtkEntryCompletion *completion)
   g_signal_connect (priv->popup_window, "button-press-event",
                     G_CALLBACK (gtk_entry_completion_popup_button_press),
                     completion);
+#ifdef MAEMO_CHANGES
+  g_signal_connect (priv->popup_window, "delete-event",
+		    G_CALLBACK (gtk_entry_completion_popup_delete_event),
+		    completion);
+  gtk_window_set_is_temporary (GTK_WINDOW (priv->popup_window), TRUE);
+#endif /* MAEMO_CHANGES */
 
   popup_frame = gtk_frame_new (NULL);
   gtk_frame_set_shadow_type (GTK_FRAME (popup_frame),
@@ -529,6 +544,10 @@ gtk_entry_completion_init (GtkEntryCompletion *completion)
   gtk_container_add (GTK_CONTAINER (priv->scrolled_window), priv->tree_view);
   gtk_box_pack_start (GTK_BOX (priv->vbox), priv->scrolled_window,
                       TRUE, TRUE, 0);
+
+#ifdef MAEMO_CHANGES
+  gtk_widget_set_name (priv->popup_window, "hildon-completion-window"); 
+#endif /* MAEMO_CHANGES */
 
   /* we don't want to see the action treeview when no actions have
    * been inserted, so we pack the action treeview after the first
@@ -862,6 +881,20 @@ gtk_entry_completion_popup_button_press (GtkWidget      *widget,
 
   return TRUE;
 }
+
+#ifdef MAEMO_CHANGES
+static gboolean
+gtk_entry_completion_popup_delete_event (GtkWidget   *widget,
+					 GdkEventAny *event,
+					 gpointer     user_data)
+{
+  GtkEntryCompletion *completion = GTK_ENTRY_COMPLETION (user_data);
+
+  _gtk_entry_completion_popdown (completion);
+
+  return TRUE;
+}
+#endif
 
 static gboolean
 gtk_entry_completion_list_button_press (GtkWidget      *widget,
@@ -1383,6 +1416,16 @@ _gtk_entry_completion_resize_popup (GtkEntryCompletion *completion)
   GtkTreeViewColumn *action_column;
   gint action_height;
 
+#if defined(MAEMO_CHANGES) && defined(GDK_WINDOWING_X11)
+  GdkWindow *window;
+  GdkDisplay *display;
+  Atom type_return;
+  int format_return, ret_val, n_rects;
+  gulong nitems_return, bytes_after_return;
+  guchar *data;
+  guint32 *val;
+#endif
+
   if (!completion->priv->entry->window)
     return FALSE;
 
@@ -1446,7 +1489,113 @@ _gtk_entry_completion_resize_popup (GtkEntryCompletion *completion)
     x = monitor.x;
   else if (x + popup_req.width > monitor.x + monitor.width)
     x = monitor.x + monitor.width - popup_req.width;
-  
+
+#if defined(MAEMO_CHANGES) && defined(GDK_WINDOWING_X11)
+  window = completion->priv->popup_window->window;
+  display  = gdk_drawable_get_display (window);
+
+  ret_val = XGetWindowProperty (GDK_DISPLAY_XDISPLAY (display),
+                                GDK_WINDOW_XWINDOW (gtk_widget_get_root_window (completion->priv->popup_window)),
+                                gdk_x11_get_xatom_by_name_for_display (display, "_NET_INPUT_AREAS"),
+                                0, G_MAXULONG,
+                                False,
+                                XA_CARDINAL,
+                                &type_return, &format_return, &nitems_return, &bytes_after_return,
+                                &data);
+
+  n_rects = nitems_return/4;
+
+  if (ret_val == Success)
+    {
+      int i, j;
+      GdkRectangle widget_rect;
+      GdkRectangle *rectangles = NULL;
+      gint root_x, root_y;
+      GdkRectangle *top = NULL, *bottom = NULL;
+      gint to_top = -1, to_bottom = -1;
+
+      val = (guint32*)data;
+
+      if (n_rects > 0)
+        {
+          rectangles = g_slice_alloc (sizeof(GdkRectangle)*n_rects);
+
+          for (i = 0, j = 0; j < n_rects; i+=4, j++)
+            {
+              rectangles[j].x = val[i];
+              rectangles[j].y = val[i+1];
+              rectangles[j].width = val[i+2];
+              rectangles[j].height = val[i+3];
+            }
+        }
+
+      if (nitems_return > 0)
+        XFree (data);
+
+      gdk_window_get_origin (completion->priv->entry->window, &root_x, &root_y);
+
+      widget_rect.x = root_x;
+      widget_rect.y = 0;
+      widget_rect.width = completion->priv->entry->allocation.width;
+      widget_rect.height = monitor.height;
+
+      for (i = 0; i < n_rects; i++)
+        {
+          GdkRectangle dummy; /* Unused, have to pass something to intersect */
+
+          if (gdk_rectangle_intersect (&widget_rect, &rectangles[i], &dummy))
+            {
+              if (rectangles[i].y + rectangles[i].height < root_y &&
+                  (top == NULL || top->y + top->height < rectangles[i].y + rectangles[i].height))
+                {
+                  top = &rectangles[i];
+                }
+              else if (rectangles[i].y > root_y &&
+                       (bottom == NULL || bottom->y > rectangles[i].y))
+                {
+                  bottom = &rectangles[i];
+                }
+            }
+        }
+
+      /* Which one is nearer */
+      if (top)
+        to_top = root_y - (top->y + top->height);
+      else
+        to_top = root_y;
+
+      if (bottom)
+        to_bottom = bottom->y - (root_y + completion->priv->entry->allocation.height);
+      else
+        to_bottom = monitor.height - (root_y + completion->priv->entry->allocation.height);
+ 
+      /* It does not fit in either direction, we need
+         to reduce the popup size */
+      if (popup_req.height > to_bottom && popup_req.height > to_top)
+        {
+          gint max_items =  MAX (to_bottom, to_top) / height;
+
+          gtk_widget_set_size_request (completion->priv->tree_view, width, max_items * height);
+          gtk_widget_size_request (completion->priv->popup_window, &popup_req);
+          gtk_widget_size_request (completion->priv->entry, &entry_req);
+        }
+
+      if (popup_req.height <= to_bottom)
+        {
+          above = FALSE;
+          y += entry_req.height;
+        }
+      else
+        {
+          above = TRUE;
+          y -= popup_req.height;
+        }
+
+      if (rectangles)
+        g_slice_free1 (sizeof(GdkRectangle)*n_rects, rectangles);
+    }
+  else
+#endif /* MAEMO_CHANGES && GDK_WINDOWING_X11 */
   if (y + entry_req.height + popup_req.height <= monitor.y + monitor.height ||
       y - monitor.y < (monitor.y + monitor.height) - (y + entry_req.height))
     {
@@ -1520,13 +1669,15 @@ _gtk_entry_completion_popup (GtkEntryCompletion *completion)
                          gtk_widget_get_screen (completion->priv->entry));
 
   gtk_widget_show (completion->priv->popup_window);
-    
+
+#ifndef MAEMO_CHANGES    
   gtk_grab_add (completion->priv->popup_window);
   gdk_pointer_grab (completion->priv->popup_window->window, TRUE,
                     GDK_BUTTON_PRESS_MASK |
                     GDK_BUTTON_RELEASE_MASK |
                     GDK_POINTER_MOTION_MASK,
                     NULL, NULL, GDK_CURRENT_TIME);
+#endif
 }
 
 void
@@ -1536,9 +1687,11 @@ _gtk_entry_completion_popdown (GtkEntryCompletion *completion)
     return;
 
   completion->priv->ignore_enter = FALSE;
-  
+
+#ifndef MAEMO_CHANGES
   gdk_pointer_ungrab (GDK_CURRENT_TIME);
   gtk_grab_remove (completion->priv->popup_window);
+#endif
 
   gtk_widget_hide (completion->priv->popup_window);
 }

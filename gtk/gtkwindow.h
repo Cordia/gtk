@@ -278,6 +278,14 @@ gboolean   gtk_window_get_decorated            (GtkWindow *window);
 void       gtk_window_set_deletable            (GtkWindow *window,
                                                 gboolean   setting);
 gboolean   gtk_window_get_deletable            (GtkWindow *window);
+#ifdef MAEMO_CHANGES
+void       gtk_window_set_is_temporary	        (GtkWindow *window,
+						 gboolean  setting);
+gboolean   gtk_window_get_is_temporary	        (GtkWindow *window);
+gboolean   _gtk_window_is_on_client_data        (GtkWindow *window,
+                                                 GdkEventClient *event);
+void       gtk_window_close_other_temporaries   (GtkWindow *window);
+#endif
 
 void       gtk_window_set_icon_list                (GtkWindow  *window,
                                                     GList      *list);

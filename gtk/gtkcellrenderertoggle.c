@@ -71,7 +71,11 @@ enum {
   PROP_INDICATOR_SIZE
 };
 
+#ifndef MAEMO_CHANGES
 #define TOGGLE_WIDTH 13
+#else  /* MAEMO_CHANGES */
+#define TOGGLE_WIDTH 26
+#endif /* MAEMO_CHANGES */
 
 static guint toggle_cell_signals[LAST_SIGNAL] = { 0 };
 

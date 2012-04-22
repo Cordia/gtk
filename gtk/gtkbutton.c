@@ -519,6 +519,28 @@ gtk_button_class_init (GtkButtonClass *klass)
 							     2,
 							     GTK_PARAM_READABLE));
 
+#ifdef MAEMO_CHANGES
+  /**
+   * GtkButton:tree-view-separator-area:
+   *
+   * Specifies the amount of pixels to reserve for drawing a separator
+   * below the button.  This is used to visually separate column headers
+   * from the tree view.  The separator which will be drawn is exactly
+   * 1px thick.  When 0, no separator will be drawn.
+   *
+   * Since: maemo 4.0
+   * Stability: Unstable
+   */
+  gtk_widget_class_install_style_property (widget_class,
+                                           g_param_spec_int ("tree-view-separator-area",
+                                                             P_("Tree View Separator Area"),
+                                                             P_("Amount of pixels to reserve for a separator"),
+                                                             0,
+                                                             G_MAXINT,
+                                                             0,
+                                                             GTK_PARAM_READABLE));
+#endif /* MAEMO_CHANGES */
+
   /**
    * GtkSettings::gtk-button-images:
    *
@@ -562,6 +584,13 @@ gtk_button_init (GtkButton *button)
   priv->image_is_stock = TRUE;
   priv->image_position = GTK_POS_LEFT;
   priv->use_action_appearance = TRUE;
+
+#ifdef MAEMO_CHANGES
+  g_object_set (G_OBJECT (button),
+		"tap-and-hold-state", GTK_STATE_ACTIVE,
+                "can-focus", FALSE,
+		NULL);
+#endif /* MAEMO_CHANGES */
 }
 
 static void
@@ -1341,11 +1370,17 @@ gtk_button_size_request (GtkWidget      *widget,
   GtkBorder inner_border;
   gint focus_width;
   gint focus_pad;
+#ifdef MAEMO_CHANGES
+  gint tree_view_separator_area;
+#endif /* MAEMO_CHANGES */
 
   gtk_button_get_props (button, &default_border, NULL, &inner_border, NULL);
   gtk_widget_style_get (GTK_WIDGET (widget),
 			"focus-line-width", &focus_width,
 			"focus-padding", &focus_pad,
+#ifdef MAEMO_CHANGES
+			"tree-view-separator-area", &tree_view_separator_area,
+#endif /* MAEMO_CHANGES */
 			NULL);
  
   requisition->width = ((GTK_CONTAINER (widget)->border_width +
@@ -1373,6 +1408,10 @@ gtk_button_size_request (GtkWidget      *widget,
   
   requisition->width += 2 * (focus_width + focus_pad);
   requisition->height += 2 * (focus_width + focus_pad);
+
+#ifdef MAEMO_CHANGES
+  requisition->height += tree_view_separator_area;
+#endif /* MAEMO_CHANGES */
 }
 
 static void
@@ -1389,11 +1428,17 @@ gtk_button_size_allocate (GtkWidget     *widget,
   GtkBorder inner_border;
   gint focus_width;
   gint focus_pad;
+#ifdef MAEMO_CHANGES
+  gint tree_view_separator_area;
+#endif /* MAEMO_CHANGES */
 
   gtk_button_get_props (button, &default_border, NULL, &inner_border, NULL);
   gtk_widget_style_get (GTK_WIDGET (widget),
 			"focus-line-width", &focus_width,
 			"focus-padding", &focus_pad,
+#ifdef MAEMO_CHANGES
+			"tree-view-separator-area", &tree_view_separator_area,
+#endif /* MAEMO_CHANGES */
 			NULL);
  
 			    
@@ -1417,6 +1462,9 @@ gtk_button_size_allocate (GtkWidget     *widget,
                                     inner_border.right -
 				    border_width * 2);
       child_allocation.height = MAX (1, widget->allocation.height -
+#ifdef MAEMO_CHANGES
+				     tree_view_separator_area -
+#endif /* MAEMO_CHANGES */
                                      ythickness * 2 -
                                      inner_border.top -
                                      inner_border.bottom -
@@ -1472,7 +1520,10 @@ _gtk_button_paint (GtkButton          *button,
   gboolean interior_focus;
   gint focus_width;
   gint focus_pad;
-
+#ifdef MAEMO_CHANGES
+  gint tree_view_separator_area;
+#endif /* MAEMO_CHANGES */
+   
   widget = GTK_WIDGET (button);
 
   if (gtk_widget_is_drawable (widget))
@@ -1483,12 +1534,28 @@ _gtk_button_paint (GtkButton          *button,
       gtk_widget_style_get (widget,
 			    "focus-line-width", &focus_width,
 			    "focus-padding", &focus_pad,
+#ifdef MAEMO_CHANGES
+			    "tree-view-separator-area", &tree_view_separator_area,
+#endif /* MAEMO_CHANGES */
 			    NULL); 
 	
       x = widget->allocation.x + border_width;
       y = widget->allocation.y + border_width;
       width = widget->allocation.width - border_width * 2;
       height = widget->allocation.height - border_width * 2;
+
+#ifdef MAEMO_CHANGES
+      if (tree_view_separator_area != 0)
+	gtk_paint_hline (widget->style,
+			 widget->window,
+			 GTK_STATE_NORMAL,
+			 area,
+			 widget,
+			 "listboxseparator",
+			 area->x - focus_width - focus_pad,
+			 area->x + area->width + focus_width + focus_pad,
+			 height + 2 * tree_view_separator_area);
+#endif /* MAEMO_CHANGES */
 
       if (gtk_widget_has_default (widget) &&
 	  GTK_BUTTON (widget)->relief == GTK_RELIEF_NORMAL)
@@ -2340,6 +2407,50 @@ gtk_button_get_event_window (GtkButton *button)
 
   return button->event_window;
 }
+
+#ifdef MAEMO_CHANGES
+
+typedef enum {
+  OSSO_GTK_BUTTON_ATTACH_NORTH =    1 << 0,
+  OSSO_GTK_BUTTON_ATTACH_EAST =     1 << 1,
+  OSSO_GTK_BUTTON_ATTACH_SOUTH =    1 << 2,
+  OSSO_GTK_BUTTON_ATTACH_WEST =     1 << 3,
+  OSSO_GTK_BUTTON_ATTACH_ENUM_END = 1 << 4
+} OssoGtkButtonAttachFlags;
+
+const gchar *osso_gtk_button_attach_details [OSSO_GTK_BUTTON_ATTACH_ENUM_END] =
+  { "osso_button",
+    "osso_button_n",
+    "osso_button_e",
+    "osso_button_ne",
+    "osso_button_s",
+    "osso_button_ns",
+    "osso_button_es",
+    "osso_button_nes",
+    "osso_button_w",
+    "osso_button_nw",
+    "osso_button_ew",
+    "osso_button_new",
+    "osso_button_sw",
+    "osso_button_nsw",
+    "osso_button_esw",
+    "osso_button_nesw",
+  };
+
+void
+hildon_gtk_button_set_depressed (GtkButton *button,
+                                 gboolean   depressed)
+{
+}
+
+void
+osso_gtk_button_set_detail_from_attach_flags (GtkButton *button,
+                                              OssoGtkButtonAttachFlags flags)
+{
+}
+
+#endif /* MAEMO_CHANGES */
+
 
 #define __GTK_BUTTON_C__
 #include "gtkaliasdef.c"  

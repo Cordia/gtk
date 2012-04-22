@@ -61,6 +61,9 @@ static gchar *var_name = "-";
 #define HAS_SUFFIX_SVG (1 << 1)
 #define HAS_SUFFIX_PNG (1 << 2)
 #define HAS_ICON_FILE  (1 << 3)
+#ifdef MAEMO_CHANGES
+#define HAS_SUFFIX_ANI (1 << 4)
+#endif /* MAEMO_CHANGES */
 
 #define MAJOR_VERSION 1
 #define MINOR_VERSION 0
@@ -640,6 +643,10 @@ scan_directory (const gchar *base_path,
 	    flags |= HAS_SUFFIX_XPM;
 	  else if (g_str_has_suffix (name, ".icon"))
 	    flags |= HAS_ICON_FILE;
+#ifdef MAEMO_CHANGES
+	  else if (g_str_has_suffix (name, ".ani"))
+	    flags |= HAS_SUFFIX_ANI;
+#endif /* MAEMO_CHANGES */
 	  
 	  if (flags == 0)
 	    continue;

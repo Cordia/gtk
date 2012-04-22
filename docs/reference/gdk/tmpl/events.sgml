@@ -326,6 +326,13 @@ gdk_event_handler_set().
 @Returns: 
 
 
+<!-- ##### FUNCTION gdk_close_all_temporary_windows ##### -->
+<para>
+
+</para>
+
+
+
 <!-- ##### FUNCTION gdk_event_send_clientmessage_toall ##### -->
 <para>
 </para>

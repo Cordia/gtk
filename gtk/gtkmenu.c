@@ -27,6 +27,10 @@
 #define GTK_MENU_INTERNALS
 #include "config.h"
 #include <string.h>
+#ifdef MAEMO_CHANGES
+#include <math.h>
+#include <stdlib.h>
+#endif /* MAEMO_CHANGES */
 #include "gdk/gdkkeysyms.h"
 #include "gtkaccellabel.h"
 #include "gtkaccelmap.h"
@@ -36,6 +40,9 @@
 #include "gtkmain.h"
 #include "gtkmarshalers.h"
 #include "gtkmenu.h"
+#ifdef MAEMO_CHANGES
+#include "gtkmenubar.h"
+#endif /* MAEMO_CHANGES */
 #include "gtktearoffmenuitem.h"
 #include "gtkwindow.h"
 #include "gtkhbox.h"
@@ -45,6 +52,10 @@
 #include "gtkintl.h"
 #include "gtkalias.h"
 
+
+#ifdef MAEMO_CHANGES
+#define SCROLL_DELAY_FACTOR 5    /* Scroll repeat multiplier */
+#endif /* MAEMO_CHANGES */
 
 #define DEFAULT_POPUP_DELAY     225
 #define DEFAULT_POPDOWN_DELAY  1000
@@ -104,6 +115,16 @@ struct _GtkMenuPrivate
   guint have_position         : 1;
   guint ignore_button_release : 1;
   guint no_toggle_size        : 1;
+
+#ifdef MAEMO_CHANGES
+  /* For context menu behavior */
+  gboolean context_menu;
+  int popup_pointer_x;
+  int popup_pointer_y;
+
+  /* Handling GdkScreen::size-changed */
+  guint size_changed_id;
+#endif /* MAEMO_CHANGES */
 };
 
 typedef struct
@@ -256,6 +277,13 @@ static void _gtk_menu_refresh_accel_paths (GtkMenu *menu,
 static const gchar attach_data_key[] = "gtk-menu-attach-data";
 
 static guint menu_signals[LAST_SIGNAL] = { 0 };
+
+#ifdef MAEMO_CHANGES
+static gint context_menu_counter = 0;
+
+static void menu_screen_size_changed (GdkScreen *screen,
+                                      GtkMenu   *menu);
+#endif
 
 static GtkMenuPrivate *
 gtk_menu_get_private (GtkMenu *menu)
@@ -672,6 +700,22 @@ gtk_menu_class_init (GtkMenuClass *class)
                                                               GTK_TYPE_ARROW_PLACEMENT,
                                                               GTK_ARROWS_BOTH,
                                                               GTK_PARAM_READABLE));
+#ifdef MAEMO_CHANGES
+  /**
+   * GtkMenu::maemo-decorated
+   *
+   * Whether the menu window is decorated by the window manager.
+   *
+   * Since: maemo 5.0
+   * Stability: Unstable
+   */
+  gtk_widget_class_install_style_property (widget_class,
+                                           g_param_spec_boolean ("maemo-decorated",
+                                                                 P_("Decorated"),
+                                                                 P_("Whether the menu window is decorated by the window manager"),
+                                                                 TRUE,
+                                                                 GTK_PARAM_READABLE));
+#endif
 
  gtk_container_class_install_child_property (container_class,
                                              CHILD_PROP_LEFT_ATTACH,
@@ -996,6 +1040,30 @@ gtk_menu_window_event (GtkWidget *window,
     case GDK_KEY_RELEASE:
       handled = gtk_widget_event (menu, event);
       break;
+#if defined(MAEMO_CHANGES) && defined(GDK_WINDOWING_X11)
+    case GDK_CLIENT_EVENT:
+      /* Close down the whole hierarchy, but not if we're torn off. Don't call
+       * cancel if the menu isn't visible to avoid extra selection-done
+       * signals.
+       */
+      if (event->client.message_type == gdk_atom_intern_static_string ("_GTK_DELETE_TEMPORARIES") &&
+          _gtk_window_is_on_client_data (GTK_WINDOW (window), (GdkEventClient*)event) == FALSE &&
+	  window == GTK_MENU (menu)->toplevel &&
+	  gtk_widget_get_mapped (GTK_MENU (menu)->toplevel))
+	{
+	  gtk_menu_shell_cancel (GTK_MENU_SHELL (menu));
+	  handled = TRUE;
+	}
+      break;
+    case GDK_DELETE:
+      if (window == GTK_MENU (menu)->toplevel &&
+          gtk_widget_get_mapped (GTK_MENU (menu)->toplevel))
+        {
+          gtk_menu_shell_cancel (GTK_MENU_SHELL (menu));
+          handled = TRUE;
+        }
+      break;
+#endif /* MAEMO_CHANGES */
     default:
       break;
     }
@@ -1032,6 +1100,9 @@ static void
 gtk_menu_init (GtkMenu *menu)
 {
   GtkMenuPrivate *priv = gtk_menu_get_private (menu);
+#ifdef MAEMO_CHANGES
+  gboolean decorated = TRUE;
+#endif
 
   menu->parent_menu_item = NULL;
   menu->old_active_menu_item = NULL;
@@ -1041,7 +1112,11 @@ gtk_menu_init (GtkMenu *menu)
   menu->toggle_size = 0;
 
   menu->toplevel = g_object_connect (g_object_new (GTK_TYPE_WINDOW,
+#ifdef MAEMO_CHANGES
+                                                   "type", GTK_WINDOW_TOPLEVEL,
+#else
 						   "type", GTK_WINDOW_POPUP,
+#endif /* MAEMO_CHANGES */
 						   "child", menu,
 						   NULL),
 				     "signal::event", gtk_menu_window_event, menu,
@@ -1050,6 +1125,13 @@ gtk_menu_init (GtkMenu *menu)
 				     NULL);
   gtk_window_set_resizable (GTK_WINDOW (menu->toplevel), FALSE);
   gtk_window_set_mnemonic_modifier (GTK_WINDOW (menu->toplevel), 0);
+
+#ifdef MAEMO_CHANGES
+  gtk_widget_style_get (GTK_WIDGET (menu), "maemo-decorated", &decorated, NULL);
+  gtk_window_set_decorated (GTK_WINDOW (menu->toplevel), decorated);
+  gtk_widget_add_events (menu->toplevel, GDK_VISIBILITY_NOTIFY_MASK);
+  gtk_window_set_is_temporary (GTK_WINDOW (menu->toplevel), TRUE);
+#endif /* MAEMO_CHANGES */
 
   /* Refloat the menu, so that reference counting for the menu isn't
    * affected by it being a child of the toplevel
@@ -1079,6 +1161,17 @@ gtk_menu_init (GtkMenu *menu)
 
   priv->upper_arrow_state = GTK_STATE_NORMAL;
   priv->lower_arrow_state = GTK_STATE_NORMAL;
+
+#ifdef MAEMO_CHANGES
+  priv->context_menu = FALSE;
+  priv->popup_pointer_x = -1;
+  priv->popup_pointer_y = -1;
+
+  priv->size_changed_id =
+      g_signal_connect (gtk_widget_get_screen (menu->toplevel), "size_changed",
+                        G_CALLBACK (menu_screen_size_changed),
+                        menu);
+#endif /* MAEMO_CHANGES */
 
   priv->have_layout = FALSE;
   priv->monitor_num = -1;
@@ -1138,8 +1231,26 @@ gtk_menu_destroy (GtkObject *object)
       priv->title = NULL;
     }
 
+#ifdef MAEMO_CHANGES
+  if (priv->size_changed_id)
+    {
+      g_signal_handler_disconnect (gtk_widget_get_screen (GTK_WIDGET (object)),
+                                   priv->size_changed_id);
+      priv->size_changed_id = 0;
+    }
+#endif /* MAEMO_CHANGES */
+
   GTK_OBJECT_CLASS (gtk_menu_parent_class)->destroy (object);
 }
+
+#ifdef MAEMO_CHANGES
+static void
+menu_screen_size_changed (GdkScreen *screen,
+                          GtkMenu   *menu)
+{
+  gtk_menu_shell_cancel (GTK_MENU_SHELL (menu));
+}
+#endif /* MAEMO_CHANGES */
 
 static void
 menu_change_screen (GtkMenu   *menu,
@@ -1153,6 +1264,15 @@ menu_change_screen (GtkMenu   *menu,
 	return;
     }
 
+#ifdef MAEMO_CHANGES
+  if (private->size_changed_id)
+    {
+      g_signal_handler_disconnect (gtk_widget_get_screen (GTK_WIDGET (menu)),
+                                   private->size_changed_id);
+      private->size_changed_id = 0;
+    }
+#endif /* MAEMO_CHANGES */
+
   if (menu->torn_off)
     {
       gtk_window_set_screen (GTK_WINDOW (menu->tearoff_window), new_screen);
@@ -1161,6 +1281,12 @@ menu_change_screen (GtkMenu   *menu,
 
   gtk_window_set_screen (GTK_WINDOW (menu->toplevel), new_screen);
   private->monitor_num = -1;
+
+#ifdef MAEMO_CHANGES
+  private->size_changed_id = g_signal_connect (new_screen, "size_changed",
+                                               G_CALLBACK (menu_screen_size_changed),
+                                               menu);
+#endif /* MAEMO_CHANGES */
 }
 
 static void
@@ -1409,6 +1535,49 @@ popup_grab_on_window (GdkWindow *window,
   return FALSE;
 }
 
+#ifdef MAEMO_CHANGES
+#define HILDON_MENU_NAME_SHARP                  "menu_with_corners"
+/* needed to allow different themeing for first level menus */
+#define HILDON_MENU_NAME_ROUND_FIRST_LEVEL      "menu_without_corners_first_level"
+#define HILDON_MENU_NAME_ROUND                  "menu_without_corners"
+#define HILDON_MENU_NAME_FORCE_SHARP            "menu_force_with_corners"
+#define HILDON_MENU_NAME_FORCE_ROUND            "menu_force_without_corners"
+
+/* Little help function for making some sanity tests on this menu.
+ * Checks that given widget really is a menu and that it has no name 
+ * assigned to it yet.
+ * Names used to do hildon theming:
+ * HILDON_MENU_NAME_SHARP for menu with sharp upper corners
+ * HILDON_MENU_NAME_ROUND for menu with round corners
+ */
+static gboolean 
+maemo_menu_check_name (GtkWidget *widget) 
+{
+  gboolean legal_name = FALSE;
+  gchar **tmp = NULL;
+  const gchar *name = NULL;
+  static gchar *menu_names[] = { "GtkMenu",
+				 HILDON_MENU_NAME_SHARP,
+				 HILDON_MENU_NAME_ROUND,
+				 HILDON_MENU_NAME_ROUND_FIRST_LEVEL,
+				 NULL };
+  if (GTK_IS_MENU (widget) &&
+      (name = gtk_widget_get_name (widget)))
+    {
+      if (!g_ascii_strcasecmp (name, HILDON_MENU_NAME_FORCE_SHARP) || !g_ascii_strcasecmp (name, HILDON_MENU_NAME_FORCE_ROUND))
+	return FALSE;
+      for (tmp = menu_names; *tmp; tmp++) 
+        if (!g_ascii_strcasecmp (name, *tmp ))
+	  {
+  	    legal_name = TRUE;
+	    break;
+          }
+    }
+  
+  return legal_name;
+}
+#endif /* MAEMO_CHANGES */
+
 /**
  * gtk_menu_popup:
  * @menu: a #GtkMenu.
@@ -1512,6 +1681,19 @@ gtk_menu_popup (GtkMenu		    *menu,
     {
       if (popup_grab_on_window (xgrab_shell->window, activate_time, grab_keyboard))
 	GTK_MENU_SHELL (xgrab_shell)->have_xgrab = TRUE;
+
+#ifdef MAEMO_CHANGES
+      /* Maemo: enable rc-file theming */
+      if (maemo_menu_check_name (widget))
+        {
+          if (GTK_IS_MENU_BAR (parent_menu_shell))
+            gtk_widget_set_name (widget, HILDON_MENU_NAME_SHARP);
+          else if (GTK_IS_MENU (parent_menu_shell))
+            gtk_widget_set_name( widget, HILDON_MENU_NAME_ROUND);
+          else
+            gtk_widget_set_name (widget, HILDON_MENU_NAME_ROUND_FIRST_LEVEL);
+        }
+#endif /* MAEMO_CHANGES */
     }
   else
     {
@@ -1521,6 +1703,12 @@ gtk_menu_popup (GtkMenu		    *menu,
       transfer_window = menu_grab_transfer_window_get (menu);
       if (popup_grab_on_window (transfer_window, activate_time, grab_keyboard))
 	GTK_MENU_SHELL (xgrab_shell)->have_xgrab = TRUE;
+
+#ifdef MAEMO_CHANGES
+      /* Maemo: enable rc-file theming */
+      if (maemo_menu_check_name (widget))
+        gtk_widget_set_name (widget, HILDON_MENU_NAME_ROUND_FIRST_LEVEL);
+#endif /* MAEMO_CHANGES */
     }
 
   if (!GTK_MENU_SHELL (xgrab_shell)->have_xgrab)
@@ -1610,6 +1798,18 @@ gtk_menu_popup (GtkMenu		    *menu,
 
   gtk_menu_scroll_to (menu, menu->scroll_offset);
 
+#ifdef MAEMO_CHANGES
+  /* Hildon: save position of the pointer during popup. Not multihead safe. */
+  priv->context_menu = (context_menu_counter > 0) && !parent_menu_item;
+
+  if (priv->context_menu)
+    gdk_display_get_pointer (gtk_widget_get_display (widget), NULL,
+                             &priv->popup_pointer_x,
+                             &priv->popup_pointer_y,
+                             NULL);
+#endif /* MAEMO_CHANGES */
+
+#ifndef MAEMO_CHANGES
   /* if no item is selected, select the first one */
   if (!menu_shell->active_menu_item)
     {
@@ -1622,6 +1822,7 @@ gtk_menu_popup (GtkMenu		    *menu,
       if (touchscreen_mode)
         gtk_menu_shell_select_first (menu_shell, TRUE);
     }
+#endif /* !MAEMO_CHANGES */
 
   /* Once everything is set up correctly, map the toplevel window on
      the screen.
@@ -1661,6 +1862,10 @@ gtk_menu_popdown (GtkMenu *menu)
   menu_shell->ignore_enter = FALSE;
 
   private->have_position = FALSE;
+
+#ifdef MAEMO_CHANGES
+  private->context_menu = FALSE;
+#endif
 
   gtk_menu_stop_scrolling (menu);
   
@@ -2925,6 +3130,29 @@ gtk_menu_show (GtkWidget *widget)
   GTK_WIDGET_CLASS (gtk_menu_parent_class)->show (widget);
 }
 
+#ifdef MAEMO_CHANGES
+static gint
+distance_traveled (GtkWidget *widget)
+{
+  GtkMenuPrivate *priv;
+  GdkScreen *screen;
+  GdkDisplay *display;
+  gint x, y, dx, dy;
+
+  priv = gtk_menu_get_private (GTK_MENU (widget));
+
+  screen = gtk_widget_get_screen (widget);
+  display = gdk_screen_get_display (screen);
+
+  gdk_display_get_pointer (display, NULL, &x, &y, NULL);
+
+  dx = (priv->popup_pointer_x - x);
+  dy = (priv->popup_pointer_y - y);
+
+  return abs ((int) sqrt ((double) (dx * dx + dy * dy)));
+}
+#endif /* MAEMO_CHANGES */
+
 static gboolean
 gtk_menu_button_scroll (GtkMenu        *menu,
                         GdkEventButton *event)
@@ -3008,6 +3236,9 @@ gtk_menu_button_release (GtkWidget      *widget,
 			 GdkEventButton *event)
 {
   GtkMenuPrivate *priv = gtk_menu_get_private (GTK_MENU (widget));
+#ifdef MAEMO_CHANGES
+  GtkWidget *menu_item;
+#endif
 
   if (priv->ignore_button_release)
     {
@@ -3026,6 +3257,7 @@ gtk_menu_button_release (GtkWidget      *widget,
   /*  Don't pass down to menu shell if a non-menuitem part of the menu
    *  was clicked (see comment in button_press()).
    */
+#ifndef MAEMO_CHANGES
   if (GTK_IS_MENU_SHELL (gtk_get_event_widget ((GdkEvent *) event)) &&
       pointer_in_menu_window (widget, event->x_root, event->y_root))
     {
@@ -3039,6 +3271,38 @@ gtk_menu_button_release (GtkWidget      *widget,
 
       return TRUE;
     }
+#else
+  menu_item = gtk_get_event_widget ((GdkEvent*) event);
+  if (!GTK_IS_MENU_ITEM (menu_item) ||
+      !GTK_IS_MENU (menu_item->parent))
+    {
+      if (priv->context_menu &&
+          (priv->popup_pointer_x >= 0) &&
+          (priv->popup_pointer_y >= 0))
+        {
+          gint threshold;
+          gint distance;
+
+          g_object_get (gtk_widget_get_settings (widget),
+                        "gtk-dnd-drag-threshold", &threshold,
+                        NULL);
+
+          distance = distance_traveled (widget);
+
+          priv->popup_pointer_x = -1;
+          priv->popup_pointer_y = -1;
+
+          /*  Don't popdown if we traveled less than DND threshold
+           *  since popup point, as per the Nokia 770 specs.
+           */
+          if (distance < threshold)
+            return TRUE;
+        }
+
+      if (pointer_in_menu_window (widget, event->x_root, event->y_root))
+        return TRUE;
+    }
+#endif /* MAEMO_CHANGES */
 
   return GTK_WIDGET_CLASS (gtk_menu_parent_class)->button_release_event (widget, event);
 }
@@ -3217,7 +3481,35 @@ gtk_menu_key_press (GtkWidget	*widget,
 	    }
 	}
     }
-  
+#ifdef MAEMO_CHANGES
+  else if (!can_change_accels)
+    {
+      GtkWidget *toplevel = gtk_menu_get_toplevel (widget);
+
+      if (toplevel)
+        {
+          GSList *accel_groups;
+          GSList *list;
+
+          accel_groups = gtk_accel_groups_from_object (G_OBJECT (toplevel));
+
+          for (list = accel_groups; list; list = list->next)
+            {
+              GtkAccelGroup *accel_group = list->data;
+
+              if (gtk_accel_group_query (accel_group, accel_key, accel_mods,
+                                         NULL))
+                {
+                  gtk_menu_shell_cancel (GTK_MENU_SHELL (widget));
+                  gtk_window_activate_key (GTK_WINDOW (toplevel), event);
+
+                  break;
+                }
+            }
+        }
+    }
+#endif /* MAEMO_CHANGES */
+
   return TRUE;
 }
 
@@ -3296,13 +3588,44 @@ gtk_menu_motion_notify (GtkWidget      *widget,
   menu_item = gtk_get_event_widget ((GdkEvent*) event);
   if (!GTK_IS_MENU_ITEM (menu_item) ||
       !GTK_IS_MENU (menu_item->parent))
+#ifdef MAEMO_CHANGES
+    {
+      GtkMenuPrivate *priv = gtk_menu_get_private (GTK_MENU (widget));
+
+      if (priv->context_menu)
+        {
+          gint threshold;
+
+          g_object_get (gtk_widget_get_settings (widget),
+                        "gtk-dnd-drag-threshold", &threshold,
+                        NULL);
+
+          /* Context menu mode. If we dragged out of the menu, close
+           * the menu, as by the specs.
+           */
+          if (!pointer_in_menu_window (widget, event->x_root, event->y_root) &&
+              (distance_traveled (widget) >= threshold) &&
+              (event->state & GDK_BUTTON1_MASK))
+            {
+              gtk_menu_shell_deactivate (GTK_MENU_SHELL (widget));
+
+              return TRUE;
+            }
+        }
+
+      return FALSE;
+    }
+#else
     return FALSE;
+#endif /* MAEMO_CHANGES */
 
   menu_shell = GTK_MENU_SHELL (menu_item->parent);
   menu = GTK_MENU (menu_shell);
 
+#ifndef MAEMO_CHANGES
   if (definitely_within_item (menu_item, event->x, event->y))
     menu_shell->activate_time = 0;
+#endif /* !MAEMO_CHANGES */
 
   need_enter = (gtk_menu_has_navigation_triangle (menu) || menu_shell->ignore_enter);
 
@@ -3371,7 +3694,6 @@ get_double_arrows (GtkMenu *menu)
   GtkMenuPrivate   *priv = gtk_menu_get_private (menu);
   gboolean          double_arrows;
   GtkArrowPlacement arrow_placement;
-
   gtk_widget_style_get (GTK_WIDGET (menu),
                         "double-arrows", &double_arrows,
                         "arrow-placement", &arrow_placement,
@@ -3439,16 +3761,106 @@ gtk_menu_scroll_by (GtkMenu *menu,
     gtk_menu_scroll_to (menu, offset);
 }
 
+#ifdef MAEMO_CHANGES
+#include "gtkseparatormenuitem.h"
+
+/* Same as _gtk_menu_item_is_selectable() except that this considers
+ * insensitive items valid - otherwise scrolling would skip them over, or stop
+ * scrolling before the begin/end of the menu, both of which would look bad */
+static gboolean
+_gtk_menu_item_is_scrollable (GtkWidget *menu_item)
+{
+  if ((!GTK_BIN (menu_item)->child &&
+       G_OBJECT_TYPE (menu_item) == GTK_TYPE_MENU_ITEM) ||
+       GTK_IS_SEPARATOR_MENU_ITEM (menu_item) ||
+       !gtk_widget_get_visible (menu_item))
+    return FALSE;
+
+  return TRUE;
+}
+#endif
+
 static void
 gtk_menu_do_timeout_scroll (GtkMenu  *menu,
                             gboolean  touchscreen_mode)
 {
   gboolean upper_visible;
   gboolean lower_visible;
+#ifdef MAEMO_CHANGES
+  GtkWidget *item = NULL;
+#endif
 
   upper_visible = menu->upper_arrow_visible;
   lower_visible = menu->lower_arrow_visible;
 
+#ifdef MAEMO_CHANGES
+#define VISIBILITY_THRESHOLD 0.70
+  if (touchscreen_mode)
+    {
+      GdkRectangle visible;
+      GdkRectangle rect;
+      GList *l;
+
+      /* Scroll by item picking the next item that is not sufficiently
+       * readable. The visibility threshold is to avoid the impression of
+       * skipping an item when there's only one or two pixels obscured.
+       */
+
+      visible.x = 0; /* unused */
+      visible.y = menu->scroll_offset;
+      gdk_drawable_get_size (menu->view_window, &visible.width, &visible.height);
+
+      if (menu->scroll_step < 0)
+        {
+          /* scrolling up */
+          for (l = GTK_MENU_SHELL (menu)->children; l != NULL; l = l->next)
+            {
+              GtkWidget *child = l->data;
+
+              if (!_gtk_menu_item_is_scrollable (child))
+                continue;
+
+              /* completely below the top edge, use the previous one */
+              if (child->allocation.y >= visible.y)
+                break;
+
+              /* visible/readable enough, use the previous one */
+              if (gdk_rectangle_intersect (&child->allocation, &visible, &rect) &&
+                  rect.height / (float)child->allocation.height >= VISIBILITY_THRESHOLD)
+                break;
+
+              item = child;
+            }
+        }
+      else
+        {
+          /* scrolling down */
+          for (l = GTK_MENU_SHELL (menu)->children; l != NULL; l = l->next)
+            {
+              GtkWidget *child = l->data;
+
+              if (!_gtk_menu_item_is_scrollable (child))
+                continue;
+
+              /* skip all completely above the bottom edge */
+              if (child->allocation.y + child->allocation.height < visible.y + visible.height)
+                continue;
+
+              /* visible/readable enough, try the next one */
+              if (gdk_rectangle_intersect (&child->allocation, &visible, &rect) &&
+                  rect.height / (float)child->allocation.height >= VISIBILITY_THRESHOLD)
+                continue;
+
+              item = child;
+              break;
+            }
+        }
+    }
+
+  if (item)
+    gtk_menu_scroll_item_visible (GTK_MENU_SHELL (menu), item);
+  else
+#endif
   gtk_menu_scroll_by (menu, menu->scroll_step);
 
   if (touchscreen_mode &&
@@ -3494,6 +3906,11 @@ gtk_menu_scroll_timeout_initial (gpointer data)
                 "gtk-timeout-repeat", &timeout,
                 "gtk-touchscreen-mode", &touchscreen_mode,
                 NULL);
+#ifdef MAEMO_CHANGES
+  /* as we scroll by item, use the multiplier or we'll go way too fast */
+  if (touchscreen_mode)
+    timeout *= SCROLL_DELAY_FACTOR;
+#endif /* MAEMO_CHANGES */
 
   gtk_menu_do_timeout_scroll (menu, touchscreen_mode);
 
@@ -3513,7 +3930,11 @@ gtk_menu_start_scrolling (GtkMenu *menu)
   gboolean touchscreen_mode;
 
   g_object_get (gtk_widget_get_settings (GTK_WIDGET (menu)),
+#ifdef MAEMO_CHANGES
+                "gtk-timeout-initial", &timeout,
+#else  /* !MAEMO_CHANGES */
                 "gtk-timeout-repeat", &timeout,
+#endif /* !MAEMO_CHANGES */
                 "gtk-touchscreen-mode", &touchscreen_mode,
                 NULL);
 
@@ -5392,6 +5813,23 @@ gtk_menu_get_reserve_toggle_size (GtkMenu *menu)
 
   return !priv->no_toggle_size;
 }
+
+#ifdef MAEMO_CHANGES
+/* Hildon functions to make context menus behave according to spec */
+void
+_gtk_menu_push_context_menu_behavior (void)
+{
+  context_menu_counter++;
+}
+
+void
+_gtk_menu_pop_context_menu_behavior (void)
+{
+  g_return_if_fail (context_menu_counter > 0);
+
+  context_menu_counter--;
+}
+#endif /* MAEMO_CHANGES */
 
 #define __GTK_MENU_C__
 #include "gtkaliasdef.c"

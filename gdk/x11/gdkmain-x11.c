@@ -482,7 +482,7 @@ gdk_x_error (Display	 *display,
                              error->request_code,
                              error->minor_code);
           
-#ifdef G_ENABLE_DEBUG	  
+#if     defined (G_ENABLE_DEBUG) || defined (MAEMO_CHANGES)
 	  g_error ("%s", msg);
 #else /* !G_ENABLE_DEBUG */
 	  g_fprintf (stderr, "%s\n", msg);

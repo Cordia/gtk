@@ -41,7 +41,9 @@
 #include <gobject/gobjectnotifyqueue.c>
 #include <gobject/gvaluecollector.h>
 #include "gtkalias.h"
-
+#ifdef MAEMO_CHANGES
+#include "gtkmenu.h"
+#endif /* MAEMO_CHANGES */
 
 enum {
   ADD,
@@ -57,6 +59,16 @@ enum {
   PROP_RESIZE_MODE,
   PROP_CHILD
 };
+
+#ifdef MAEMO_CHANGES
+typedef struct
+{
+  GtkWidget *menu;
+  void *func;
+  GtkWidgetTapAndHoldFlags flags;
+} GtkContainerTAH;
+
+#endif /* MAEMO_CHANGES */
 
 #define PARAM_SPEC_PARAM_ID(pspec)              ((pspec)->param_id)
 #define PARAM_SPEC_SET_PARAM_ID(pspec, id)      ((pspec)->param_id = (id))
@@ -100,6 +112,15 @@ static void     gtk_container_unmap                (GtkWidget         *widget);
 
 static gchar* gtk_container_child_default_composite_name (GtkContainer *container,
 							  GtkWidget    *child);
+
+#ifdef MAEMO_CHANGES
+static void     gtk_container_tap_and_hold_setup   (GtkWidget                *widget,
+						    GtkWidget                *menu,
+						    GtkCallback               func,
+						    GtkWidgetTapAndHoldFlags  flags);
+static void     gtk_container_tap_and_hold_setup_forall (GtkWidget       *widget,
+							 GtkContainerTAH *tah);
+#endif /* MAEMO_CHANGES */
 
 /* GtkBuildable */
 static void gtk_container_buildable_init           (GtkBuildableIface *iface);
@@ -223,6 +244,14 @@ gtk_container_class_init (GtkContainerClass *class)
   widget_class->map = gtk_container_map;
   widget_class->unmap = gtk_container_unmap;
   widget_class->focus = gtk_container_focus;
+
+#ifdef MAEMO_CHANGES
+  g_signal_override_class_closure (g_signal_lookup ("tap-and-hold-setup",
+                                                    GTK_TYPE_WIDGET),
+                                   GTK_TYPE_CONTAINER,
+                                   g_cclosure_new (G_CALLBACK (gtk_container_tap_and_hold_setup),
+                                                   NULL, NULL));
+#endif /* MAEMO_CHANGES */
   
   class->add = gtk_container_add_unimplemented;
   class->remove = gtk_container_remove_unimplemented;
@@ -1050,6 +1079,11 @@ gtk_container_init (GtkContainer *container)
   container->reallocate_redraws = FALSE;
 }
 
+#ifdef MAEMO_CHANGES
+static GSList *size_allocated_containers = NULL;
+static guint   collect_size_allocated_containers = 0;
+#endif
+
 static void
 gtk_container_destroy (GtkObject *object)
 {
@@ -1063,6 +1097,10 @@ gtk_container_destroy (GtkObject *object)
       g_object_unref (container->focus_child);
       container->focus_child = NULL;
     }
+
+#ifdef MAEMO_CHANGES
+  size_allocated_containers = g_slist_remove_all (size_allocated_containers, container);
+#endif
 
   /* do this before walking child widgets, to avoid
    * removing children from focus chain one by one.
@@ -1334,6 +1372,16 @@ gtk_container_get_resize_container (GtkContainer *container)
   return GTK_IS_RESIZE_CONTAINER (widget) ? (GtkContainer*) widget : NULL;
 }
 
+#ifdef MAEMO_CHANGES
+void
+_gtk_container_post_size_allocate (GtkContainer *container)
+{
+  size_allocated_containers = g_slist_prepend (size_allocated_containers, container);
+}
+
+static void container_scroll_focus_adjustments (GtkContainer *container, gboolean resize_update);
+#endif
+
 static gboolean
 gtk_container_idle_sizer (gpointer data)
 {
@@ -1354,9 +1402,47 @@ gtk_container_idle_sizer (gpointer data)
       g_slist_free_1 (slist);
 
       GTK_PRIVATE_UNSET_FLAG (widget, GTK_RESIZE_PENDING);
+#ifdef MAEMO_CHANGES
+      collect_size_allocated_containers++;
+#endif
       gtk_container_check_resize (GTK_CONTAINER (widget));
+#ifdef MAEMO_CHANGES
+      collect_size_allocated_containers--;
+#endif
     }
 
+#ifdef MAEMO_CHANGES
+  /* adjust scroll position in all windows that recently resized a container */
+  if (collect_size_allocated_containers == 0)
+    {
+      GtkWidget *last = NULL;
+      GSList *current;
+
+      /* sort toplevels to allow deduping */
+      size_allocated_containers = g_slist_sort (size_allocated_containers, g_direct_equal);
+      /* adjust focus position on toplevels */
+      for (current = size_allocated_containers; current; current = current->next)
+        if (last != current->data) /* dedup toplevels */
+          {
+            last = current->data;
+            if (GTK_IS_WINDOW (current->data))
+              {
+                GtkWidget *focus = GTK_WINDOW (current->data)->focus_widget;
+                if (focus && !GTK_IS_CONTAINER (focus))
+                  focus = focus->parent;
+                while (focus)
+                  {
+                    /* adjust all focus widget parents that could possibly scroll */
+                    container_scroll_focus_adjustments (GTK_CONTAINER (focus), TRUE);
+                    focus = focus->parent;
+                  }
+              }
+          }
+      g_slist_free (size_allocated_containers);
+      size_allocated_containers = NULL;
+    }
+#endif
+  
   gdk_window_process_all_updates ();
 
   return FALSE;
@@ -1753,7 +1839,14 @@ gtk_container_real_set_focus_child (GtkContainer     *container,
 	g_object_ref (container->focus_child);
     }
 
+#ifdef MAEMO_CHANGES
+  container_scroll_focus_adjustments (container, FALSE);
+}
 
+static void
+container_scroll_focus_adjustments (GtkContainer *container, gboolean resize_update)
+{
+#endif
   /* check for h/v adjustments
    */
   if (container->focus_child)
@@ -1767,6 +1860,9 @@ gtk_container_real_set_focus_child (GtkContainer     *container,
       vadj = g_object_get_qdata (G_OBJECT (container), vadjustment_key_id);
       if (hadj || vadj) 
 	{
+#ifdef MAEMO_CHANGES
+          gboolean valid_coordinates = FALSE;
+#endif
 
 	  focus_child = container->focus_child;
 	  while (GTK_IS_CONTAINER (focus_child) && 
@@ -1775,6 +1871,9 @@ gtk_container_real_set_focus_child (GtkContainer     *container,
 	      focus_child = GTK_CONTAINER (focus_child)->focus_child;
 	    }
 	  
+#ifdef MAEMO_CHANGES
+          valid_coordinates =
+#endif
 	  gtk_widget_translate_coordinates (focus_child, container->focus_child, 
 					    0, 0, &x, &y);
 
@@ -1782,10 +1881,26 @@ gtk_container_real_set_focus_child (GtkContainer     *container,
 	   y += container->focus_child->allocation.y;
 	  
 	  if (vadj)
-	    gtk_adjustment_clamp_page (vadj, y, y + focus_child->allocation.height);
+	    {
+#ifdef MAEMO_CHANGES
+	      /* When updating the adjustments as a result of container resize
+	       * (resize_update=TRUE) force the focused widget visible only if
+	       * it is smaller than the viewport. Otherwise the updates starts
+	       * to oscillate between two values (possibly HildonScrollArea is
+	       * causing that.) That should be enough for vkb resized dialogs.
+	       */
+	      if (valid_coordinates && !resize_update || focus_child->allocation.height < vadj->page_size)
+#endif /* MAEMO_CHANGES */
+		gtk_adjustment_clamp_page (vadj, y, y + focus_child->allocation.height);
+	    }
 	  
 	  if (hadj)
-	    gtk_adjustment_clamp_page (hadj, x, x + focus_child->allocation.width);
+	    {
+#ifdef MAEMO_CHANGES
+	      if (valid_coordinates && !resize_update || focus_child->allocation.width < hadj->page_size)
+#endif /* MAEMO_CHANGES */
+		gtk_adjustment_clamp_page (hadj, x, x + focus_child->allocation.width);
+	    }
 	}
     }
 }
@@ -2759,6 +2874,59 @@ gtk_container_propagate_expose (GtkContainer   *container,
       gdk_event_free (child_event);
     }
 }
+
+#ifdef MAEMO_CHANGES
+static void
+gtk_container_tap_and_hold_setup_forall (GtkWidget       *widget,
+					 GtkContainerTAH *tah)
+{
+  gtk_widget_tap_and_hold_setup (widget, tah->menu, tah->func, tah->flags);
+}
+
+static void
+gtk_container_tap_and_hold_setup (GtkWidget                *widget,
+				  GtkWidget                *menu,
+				  GtkCallback               func,
+				  GtkWidgetTapAndHoldFlags  flags)
+{
+  GtkContainerTAH tah;
+  GValue instance_and_params[4] = { { 0, }, { 0, }, { 0, }, { 0, } };
+
+  g_return_if_fail (GTK_IS_WIDGET (widget));
+  g_return_if_fail (menu == NULL || GTK_IS_MENU (menu));
+
+  tah.menu = menu;
+  tah.func = func;
+  tah.flags = flags;
+
+  if (flags & GTK_TAP_AND_HOLD_NO_INTERNALS)
+    gtk_container_foreach (GTK_CONTAINER (widget),
+			   (GtkCallback)gtk_container_tap_and_hold_setup_forall, &tah);
+  else
+    gtk_container_forall (GTK_CONTAINER (widget),
+			  (GtkCallback)gtk_container_tap_and_hold_setup_forall,
+			  &tah);
+
+  g_value_init (&instance_and_params[0], GTK_TYPE_WIDGET);
+  g_value_set_object (&instance_and_params[0], widget);
+
+  g_value_init (&instance_and_params[1], GTK_TYPE_OBJECT);
+  g_value_set_object (&instance_and_params[1], menu);
+
+  g_value_init (&instance_and_params[2], G_TYPE_POINTER);
+  g_value_set_pointer (&instance_and_params[2], func);
+
+  g_value_init (&instance_and_params[3], G_TYPE_UINT);
+  g_value_set_uint (&instance_and_params[3], flags);
+
+  g_signal_chain_from_overridden (instance_and_params, NULL);
+
+  g_value_unset (&instance_and_params[0]);
+  g_value_unset (&instance_and_params[1]);
+  g_value_unset (&instance_and_params[2]);
+  g_value_unset (&instance_and_params[3]);
+}
+#endif /* MAEMO_CHANGES */
 
 #define __GTK_CONTAINER_C__
 #include "gtkaliasdef.c"

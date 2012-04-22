@@ -83,6 +83,9 @@ gdk_keyboard_ungrab
 gdk_pointer_is_grabbed
 gdk_pointer_ungrab
 gdk_event_send_client_message
+#ifdef MAEMO_CHANGES
+gdk_close_all_temporary_windows
+#endif
 gdk_event_send_clientmessage_toall
 gdk_keyboard_grab_info_libgtk_only
 gdk_pointer_grab_info_libgtk_only

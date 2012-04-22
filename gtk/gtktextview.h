@@ -371,6 +371,20 @@ PangoTabArray*   gtk_text_view_get_tabs               (GtkTextView      *text_vi
 /* note that the return value of this changes with the theme */
 GtkTextAttributes* gtk_text_view_get_default_attributes (GtkTextView    *text_view);
 
+#ifdef MAEMO_CHANGES
+void               hildon_gtk_text_view_set_input_mode (GtkTextView       *text_view,
+                                                        HildonGtkInputMode mode);
+HildonGtkInputMode hildon_gtk_text_view_get_input_mode (GtkTextView       *text_view);
+
+void               hildon_gtk_text_view_set_input_default (GtkTextView       *text_view,
+                                                           HildonGtkInputMode mode);
+HildonGtkInputMode hildon_gtk_text_view_get_input_default (GtkTextView       *text_view);
+
+void               hildon_gtk_text_view_set_placeholder_text (GtkTextView *text_view,
+                                                              const gchar *text);
+gchar             *hildon_gtk_text_view_get_placeholder_text (GtkTextView *text_view);
+#endif /* MAEMO_CHANGES */
+
 G_END_DECLS
 
 #endif /* __GTK_TEXT_VIEW_H__ */

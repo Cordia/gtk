@@ -89,6 +89,11 @@
 #define DEBUG_VALIDATION_AND_SCROLLING
 #endif
 
+
+#ifdef MAEMO_CHANGES
+#define TEXT_VIEW_MAX_WINDOW_SIZE 16384
+#endif
+
 #ifdef DEBUG_VALIDATION_AND_SCROLLING
 #define DV(x) (x)
 #else
@@ -110,6 +115,11 @@ struct _GtkTextViewPrivate
   guint im_spot_idle;
   gchar *im_module;
   guint scroll_after_paste : 1;
+
+#ifdef MAEMO_CHANGES
+  GtkTextBuffer *placeholder_buffer;
+  GtkTextLayout *placeholder_layout;
+#endif /* MAEMO_CHANGES */
 };
 
 
@@ -161,6 +171,11 @@ enum
   PROP_OVERWRITE,
   PROP_ACCEPTS_TAB,
   PROP_IM_MODULE
+#ifdef MAEMO_CHANGES
+  , PROP_HILDON_INPUT_MODE
+  , PROP_HILDON_INPUT_DEFAULT
+  , PROP_HILDON_PLACEHOLDER_TEXT
+#endif /* MAEMO_CHANGES */
 };
 
 static void gtk_text_view_destroy              (GtkObject        *object);
@@ -324,6 +339,13 @@ static gboolean gtk_text_view_delete_surrounding_handler   (GtkIMContext  *conte
 							    gint           offset,
 							    gint           n_chars,
 							    GtkTextView   *text_view);
+#ifdef MAEMO_CHANGES
+static gboolean gtk_text_view_has_selection_handler        (GtkIMContext  *context,
+                                                            GtkTextView   *text_view);
+static void     gtk_text_view_clipboard_operation_handler  (GtkIMContext  *context,
+                                                            GtkIMContextClipboardOperation op,
+                                                            GtkTextView   *text_view);
+#endif /* MAEMO_CHANGES */
 
 static void gtk_text_view_mark_set_handler       (GtkTextBuffer     *buffer,
                                                   const GtkTextIter *location,
@@ -686,6 +708,64 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
                                                          NULL,
                                                          GTK_PARAM_READWRITE));
 
+#ifdef MAEMO_CHANGES
+  /**
+   * GtkTextView:hildon-input-mode:
+   *
+   * Allowed characters and input mode for the text view.
+   * See #HildonGtkInputMode.
+   *
+   * Since: maemo 2.0
+   * Stability: Unstable
+   **/
+  g_object_class_install_property (gobject_class,
+                                   PROP_HILDON_INPUT_MODE,
+                                   g_param_spec_flags ("hildon-input-mode",
+                                                       P_("Hildon input mode"),
+                                                       P_("Define widget's input mode"),
+                                                       HILDON_TYPE_GTK_INPUT_MODE,
+                                                       HILDON_GTK_INPUT_MODE_FULL |
+                                                       HILDON_GTK_INPUT_MODE_MULTILINE |
+                                                       HILDON_GTK_INPUT_MODE_AUTOCAP |
+                                                       HILDON_GTK_INPUT_MODE_DICTIONARY,
+                                                       GTK_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+
+  /**
+   * GtkTextView:hildon-input-default:
+   *
+   * Default input mode for this IM context.  See #HildonGtkInputMode.
+   * The default setting for this property is %HILDON_GTK_INPUT_MODE_FULL,
+   * which means that the default input mode to be used is up to the
+   * implementation of the IM context.
+   *
+   * Since: maemo 5.0
+   **/
+  g_object_class_install_property (gobject_class,
+                                   PROP_HILDON_INPUT_DEFAULT,
+                                   g_param_spec_flags ("hildon-input-default",
+                                                       P_("Hildon input default"),
+                                                       P_("Define widget's default input mode"),
+                                                       HILDON_TYPE_GTK_INPUT_MODE,
+                                                       HILDON_GTK_INPUT_MODE_FULL,
+                                                       GTK_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+
+  /**
+   * GtkTextView:hildon-placeholder-text:
+   *
+   * Text to be displayed in the #GtkTextView when it is empty and
+   * unfocused.
+   *
+   * Since: maemo 5
+   */
+  g_object_class_install_property (gobject_class,
+                                   PROP_HILDON_PLACEHOLDER_TEXT,
+                                   g_param_spec_string ("hildon-placeholder-text",
+                                                        P_("Hildon Placeholder text"),
+                                                        P_("Text to be displayed when the text view is empty and unfocused"),
+                                                        "",
+                                                        G_PARAM_READWRITE));
+#endif /* MAEMO_CHANGES */
+
   /*
    * Style properties
    */
@@ -695,6 +775,14 @@ gtk_text_view_class_init (GtkTextViewClass *klass)
 							       P_("Color with which to draw error-indication underlines"),
 							       GDK_TYPE_COLOR,
 							       GTK_PARAM_READABLE));
+#ifdef MAEMO_CHANGES
+  gtk_widget_class_install_style_property (widget_class,
+                                           g_param_spec_boolean ("custom-background",
+                                                                 P_("Render a custom background"),
+                                                                 P_("Provide a hook for theme engines to render a custom background"),
+                                                                 FALSE,
+                                                                 GTK_PARAM_READABLE));
+#endif
   
   /*
    * Signals
@@ -1333,6 +1421,12 @@ gtk_text_view_init (GtkTextView *text_view)
  		    G_CALLBACK (gtk_text_view_retrieve_surrounding_handler), text_view);
   g_signal_connect (text_view->im_context, "delete-surrounding",
  		    G_CALLBACK (gtk_text_view_delete_surrounding_handler), text_view);
+#ifdef MAEMO_CHANGES
+  g_signal_connect (text_view->im_context, "has_selection",
+                    G_CALLBACK (gtk_text_view_has_selection_handler), text_view);
+  g_signal_connect (text_view->im_context, "clipboard_operation",
+                    G_CALLBACK (gtk_text_view_clipboard_operation_handler), text_view);
+#endif /* MAEMO_CHANGES */
 
   text_view->cursor_visible = TRUE;
 
@@ -1345,6 +1439,11 @@ gtk_text_view_init (GtkTextView *text_view)
   text_view->drag_start_y = -1;
 
   text_view->pending_place_cursor_button = 0;
+
+#ifdef MAEMO_CHANGES
+  priv->placeholder_buffer = NULL;
+  priv->placeholder_layout = NULL;
+#endif /* MAEMO_CHANGES */
 
   /* We handle all our own redrawing */
   gtk_widget_set_redraw_on_allocate (widget, FALSE);
@@ -1935,6 +2034,7 @@ gtk_text_view_queue_scroll (GtkTextView   *text_view,
                             gdouble        xalign,
                             gdouble        yalign)
 {
+  const char *mark_name;
   GtkTextIter iter;
   GtkTextPendingScroll *scroll;
 
@@ -1947,6 +2047,12 @@ gtk_text_view_queue_scroll (GtkTextView   *text_view,
   scroll->xalign = xalign;
   scroll->yalign = yalign;
   
+  /* We need to verify that the buffer contains the mark, otherwise this
+   * can lead to data structure corruption later on.
+   */
+  mark_name = gtk_text_mark_get_name (mark);
+  g_return_if_fail (gtk_text_buffer_get_mark (get_buffer (text_view), mark_name));
+
   gtk_text_buffer_get_iter_at_mark (get_buffer (text_view), &iter, mark);
 
   scroll->mark = gtk_text_buffer_create_mark (get_buffer (text_view),
@@ -2928,6 +3034,20 @@ gtk_text_view_finalize (GObject *object)
 
   /* at this point, no "notify::buffer" handler should recreate the buffer. */
   g_assert (text_view->buffer == NULL);
+
+#ifdef MAEMO_CHANGES
+  if (priv->placeholder_layout)
+    {
+      g_object_unref (priv->placeholder_layout);
+      priv->placeholder_layout = NULL;
+    }
+
+  if (priv->placeholder_buffer)
+    {
+      g_object_unref (priv->placeholder_buffer);
+      priv->placeholder_buffer = NULL;
+    }
+#endif /* MAEMO_CHANGES */
   
   cancel_pending_scroll (text_view);
 
@@ -3037,6 +3157,20 @@ gtk_text_view_set_property (GObject         *object,
         gtk_im_multicontext_set_context_id (GTK_IM_MULTICONTEXT (text_view->im_context), priv->im_module);
       break;
 
+#ifdef MAEMO_CHANGES
+    case PROP_HILDON_INPUT_MODE:
+      hildon_gtk_text_view_set_input_mode (text_view, g_value_get_flags (value));
+      break;
+
+    case PROP_HILDON_INPUT_DEFAULT:
+      hildon_gtk_text_view_set_input_default (text_view, g_value_get_flags (value));
+      break;
+
+    case PROP_HILDON_PLACEHOLDER_TEXT:
+      hildon_gtk_text_view_set_placeholder_text (text_view, g_value_get_string (value));
+      break;
+#endif /* MAEMO_CHANGES */
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -3116,6 +3250,20 @@ gtk_text_view_get_property (GObject         *object,
     case PROP_IM_MODULE:
       g_value_set_string (value, priv->im_module);
       break;
+
+#ifdef MAEMO_CHANGES
+    case PROP_HILDON_INPUT_MODE:
+      g_value_set_flags (value, hildon_gtk_text_view_get_input_mode (text_view));
+      break;
+
+    case PROP_HILDON_INPUT_DEFAULT:
+      g_value_set_flags (value, hildon_gtk_text_view_get_input_default (text_view));
+      break;
+
+    case PROP_HILDON_PLACEHOLDER_TEXT:
+      g_value_take_string (value, hildon_gtk_text_view_get_placeholder_text (text_view));
+      break;
+#endif /* MAEMO_CHANGES */
 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -3368,13 +3516,44 @@ gtk_text_view_size_allocate (GtkWidget *widget,
     widget->allocation.width != allocation->width ||
     widget->allocation.height != allocation->height;
   
+#ifdef MAEMO_CHANGES
+  widget->allocation.x = allocation->x;
+  widget->allocation.y = allocation->y;
+
+  if (allocation->width > TEXT_VIEW_MAX_WINDOW_SIZE)
+    {
+      widget->allocation.width = TEXT_VIEW_MAX_WINDOW_SIZE;
+      g_warning ("gtk_text_view_size_allocate: the text view requires too much width %d, add it directly to a scrollable widget instead of using a viewport", allocation->width);
+    }
+  else
+    {
+      widget->allocation.width = allocation->width;
+    }
+
+  if (allocation->height > TEXT_VIEW_MAX_WINDOW_SIZE)
+    {
+      widget->allocation.height = TEXT_VIEW_MAX_WINDOW_SIZE;
+      g_warning ("gtk_text_view_size_allocate: the text view requires too much height %d, add it directly to a scrollable widget instead of using a viewport", allocation->height);
+    }
+  else
+    {
+      widget->allocation.height = allocation->height;
+    }
+#else
   widget->allocation = *allocation;
+#endif
 
   if (gtk_widget_get_realized (widget))
     {
+#ifdef MAEMO_CHANGES
+      gdk_window_move_resize (widget->window,
+                              widget->allocation.x, widget->allocation.y,
+                              widget->allocation.width, widget->allocation.height);
+#else
       gdk_window_move_resize (widget->window,
                               allocation->x, allocation->y,
                               allocation->width, allocation->height);
+#endif
     }
 
   /* distribute width/height among child windows. Ensure all
@@ -3391,7 +3570,11 @@ gtk_text_view_size_allocate (GtkWidget *widget,
   else
     focus_edge_width = focus_width;
   
+#ifdef MAEMO_CHANGES
+  width = widget->allocation.width - focus_edge_width * 2 - GTK_CONTAINER (text_view)->border_width * 2;
+#else
   width = allocation->width - focus_edge_width * 2 - GTK_CONTAINER (text_view)->border_width * 2;
+#endif
 
   if (text_view->left_window)
     left_rect.width = text_view->left_window->requisition.width;
@@ -3413,7 +3596,11 @@ gtk_text_view_size_allocate (GtkWidget *widget,
   bottom_rect.width = text_rect.width;
 
 
+#ifdef MAEMO_CHANGES
+  height = widget->allocation.height - focus_edge_width * 2 - GTK_CONTAINER (text_view)->border_width * 2;
+#else
   height = allocation->height - focus_edge_width * 2 - GTK_CONTAINER (text_view)->border_width * 2;
+#endif
 
   if (text_view->top_window)
     top_rect.height = text_view->top_window->requisition.height;
@@ -3540,8 +3727,12 @@ gtk_text_view_validate_onscreen (GtkTextView *text_view)
   GtkWidget *widget = GTK_WIDGET (text_view);
   
   DV(g_print(">Validating onscreen ("G_STRLOC")\n"));
-  
+
+#ifdef MAEMO_CHANGES
+  if (SCREEN_HEIGHT (widget) > 1)
+#else
   if (SCREEN_HEIGHT (widget) > 0)
+#endif
     {
       GtkTextIter first_para;
 
@@ -3968,6 +4159,9 @@ gtk_text_view_style_set (GtkWidget *widget,
                          GtkStyle  *previous_style)
 {
   GtkTextView *text_view = GTK_TEXT_VIEW (widget);
+#ifdef MAEMO_CHANGES
+  GtkTextViewPrivate *priv = GTK_TEXT_VIEW_GET_PRIVATE (text_view);
+#endif /* MAEMO_CHANGES */
   PangoContext *ltr_context, *rtl_context;
 
   if (gtk_widget_get_realized (widget))
@@ -3992,6 +4186,45 @@ gtk_text_view_style_set (GtkWidget *widget,
       g_object_unref (ltr_context);
       g_object_unref (rtl_context);
     }
+
+#ifdef MAEMO_CHANGES
+  /* FIXME: Of course, when coded properly this and the above would be
+   * factored out in a function and shared.
+   */
+  if (priv->placeholder_layout && previous_style)
+    {
+      GdkColor font_color;
+
+      gtk_text_view_set_attributes_from_style (text_view,
+                                               priv->placeholder_layout->default_style,
+                                               widget->style);
+
+
+      /* Override the color setting */
+      if (gtk_style_lookup_color (widget->style, "ReversedSecondaryTextColor",
+                                  &font_color))
+        {
+          priv->placeholder_layout->default_style->appearance.fg_color = font_color;
+        }
+      
+      
+      ltr_context = gtk_widget_create_pango_context (widget);
+      pango_context_set_base_dir (ltr_context, PANGO_DIRECTION_LTR);
+      rtl_context = gtk_widget_create_pango_context (widget);
+      pango_context_set_base_dir (rtl_context, PANGO_DIRECTION_RTL);
+
+      gtk_text_layout_set_contexts (priv->placeholder_layout,
+                                    ltr_context, rtl_context);
+
+      g_object_unref (ltr_context);
+      g_object_unref (rtl_context);
+
+      /* The call to gtk_text_layout_set_contexts() invalidates the entire
+       * layout, so re-validate the placeholder layout immediately.
+       */
+      gtk_text_layout_validate (priv->placeholder_layout, 2000);
+    }
+#endif /* MAEMO_CHANGES */
 }
 
 static void
@@ -4331,6 +4564,15 @@ gtk_text_view_button_press_event (GtkWidget *widget, GdkEventButton *event)
 
   gtk_widget_grab_focus (widget);
 
+#ifdef MAEMO_CHANGES
+  if (text_view->editable &&
+      hildon_gtk_im_context_filter_event (text_view->im_context, (GdkEvent*)event))
+    {
+      text_view->need_im_reset = TRUE;
+      return TRUE;
+    }
+#endif /* MAEMO_CHANGES */
+
   if (event->window != text_view->text_window->bin_window)
     {
       /* Remove selection if any. */
@@ -4438,6 +4680,15 @@ gtk_text_view_button_release_event (GtkWidget *widget, GdkEventButton *event)
   if (event->window != text_view->text_window->bin_window)
     return FALSE;
 
+#ifdef MAEMO_CHANGES
+  if (text_view->editable &&
+      hildon_gtk_im_context_filter_event (text_view->im_context, (GdkEvent*)event))
+    {
+      text_view->need_im_reset = TRUE;
+      return TRUE;
+    }
+#endif /* MAEMO_CHANGES */
+
   if (event->button == 1)
     {
       if (text_view->drag_start_x >= 0)
@@ -4504,7 +4755,9 @@ gtk_text_view_focus_in_event (GtkWidget *widget, GdkEventFocus *event)
 
   if (text_view->editable)
     {
+#ifndef MAEMO_CHANGES
       text_view->need_im_reset = TRUE;
+#endif /* !MAEMO_CHANGES */
       gtk_im_context_focus_in (GTK_TEXT_VIEW (widget)->im_context);
     }
 
@@ -4591,6 +4844,10 @@ gtk_text_view_paint (GtkWidget      *widget,
   GtkTextView *text_view;
   GList *child_exposes;
   GList *tmp_list;
+#ifdef MAEMO_CHANGES
+  gboolean custom_background = FALSE;
+  GtkTextViewPrivate *priv = GTK_TEXT_VIEW_GET_PRIVATE (widget);
+#endif
   
   text_view = GTK_TEXT_VIEW (widget);
 
@@ -4617,7 +4874,52 @@ gtk_text_view_paint (GtkWidget      *widget,
           area->width, area->height);
 #endif
 
+#ifdef MAEMO_CHANGES
+  gtk_widget_style_get (widget,
+                        "custom-background", &custom_background,
+                        NULL);
+
+  if (custom_background)
+    {
+      gtk_paint_flat_box (widget->style,
+                          event->window,
+                          gtk_widget_get_state (widget),
+                          GTK_SHADOW_NONE,
+                          area,
+                          widget,
+                          NULL,
+                          - text_view->xoffset,
+                          - text_view->yoffset,
+                          area->x + area->width + text_view->xoffset,
+                          area->y + area->height + text_view->yoffset);
+    }
+#endif
+
   child_exposes = NULL;
+#ifdef MAEMO_CHANGES
+  if (!gtk_widget_has_focus (GTK_WIDGET (text_view))
+      && priv->placeholder_layout
+      && gtk_text_buffer_get_char_count (get_buffer (text_view)) == 0)
+    gtk_text_layout_draw (priv->placeholder_layout,
+                          widget,
+                          text_view->text_window->bin_window,
+                          NULL,
+                          text_view->xoffset,
+                          text_view->yoffset,
+                          area->x, area->y,
+                          area->width, area->height,
+                          &child_exposes);
+  else
+    gtk_text_layout_draw (text_view->layout,
+                          widget,
+                          text_view->text_window->bin_window,
+                          NULL,
+                          text_view->xoffset,
+                          text_view->yoffset,
+                          area->x, area->y,
+                          area->width, area->height,
+                          &child_exposes);
+#else /* !MAEMO_CHANGES */
   gtk_text_layout_draw (text_view->layout,
                         widget,
                         text_view->text_window->bin_window,
@@ -4627,6 +4929,7 @@ gtk_text_view_paint (GtkWidget      *widget,
                         area->x, area->y,
                         area->width, area->height,
                         &child_exposes);
+#endif /* !MAEMO_CHANGES */
 
   tmp_list = child_exposes;
   while (tmp_list != NULL)
@@ -4702,6 +5005,21 @@ gtk_text_view_draw_focus (GtkWidget *widget)
                            widget->allocation.width,
                            widget->allocation.height);
         }
+#ifdef MAEMO_CHANGES
+      else if (!interior_focus)
+        {
+          HildonMode hildon_mode;
+
+          gtk_widget_style_get (widget, "hildon-mode", &hildon_mode, NULL);
+          if (hildon_mode == HILDON_FREMANTLE)
+            gtk_paint_shadow (widget->style, widget->window, gtk_widget_get_state (widget),
+                              GTK_SHADOW_OUT,
+                              NULL, widget, "textview",
+                              0, 0,
+                              widget->allocation.width,
+                              widget->allocation.height);
+        }
+#endif
       else
         {
           gdk_window_clear (widget->window);
@@ -5613,7 +5931,9 @@ gtk_text_view_delete_from_cursor (GtkTextView   *text_view,
   GtkTextIter end;
   gboolean leave_one = FALSE;
 
+#ifndef MAEMO_CHANGES
   gtk_text_view_reset_im_context (text_view);
+#endif /* !MAEMO_CHANGES */
 
   if (type == GTK_DELETE_CHARS)
     {
@@ -5754,7 +6074,9 @@ gtk_text_view_backspace (GtkTextView *text_view)
 {
   GtkTextIter insert;
 
+#ifndef MAEMO_CHANGES
   gtk_text_view_reset_im_context (text_view);
+#endif /* !MAEMO_CHANGES */
 
   /* Backspace deletes the selection, if one exists */
   if (gtk_text_buffer_delete_selection (get_buffer (text_view), TRUE,
@@ -6591,11 +6913,15 @@ gtk_text_view_reset_im_context (GtkTextView *text_view)
 {
   g_return_if_fail (GTK_IS_TEXT_VIEW (text_view));
 
+#ifdef MAEMO_CHANGES
+  gtk_im_context_reset (text_view->im_context);
+#else
   if (text_view->need_im_reset)
     {
       text_view->need_im_reset = FALSE;
       gtk_im_context_reset (text_view->im_context);
     }
+#endif /* MAEMO_CHANGES */
 }
 
 /**
@@ -7574,6 +7900,43 @@ gtk_text_view_delete_surrounding_handler (GtkIMContext  *context,
   return TRUE;
 }
 
+#ifdef MAEMO_CHANGES
+
+static gboolean
+gtk_text_view_has_selection_handler (GtkIMContext *context,
+                                     GtkTextView  *text_view)
+{
+  GtkTextBuffer *buffer;
+
+  buffer = gtk_text_view_get_buffer (text_view);
+  return gtk_text_buffer_get_selection_bounds (buffer, NULL, NULL);
+}
+
+static void
+gtk_text_view_clipboard_operation_handler (GtkIMContext                  *context,
+                                           GtkIMContextClipboardOperation op,
+                                           GtkTextView                   *text_view)
+{
+  /* Similar to gtk_editable_*_clipboard(), handle these by sending
+   * signals instead of directly calling our internal functions. That
+   * way the application can hook into them if needed.
+   */
+  switch (op)
+    {
+    case GTK_IM_CONTEXT_CLIPBOARD_OP_COPY:
+      g_signal_emit_by_name (text_view, "copy_clipboard");
+      break;
+    case GTK_IM_CONTEXT_CLIPBOARD_OP_CUT:
+      g_signal_emit_by_name (text_view, "cut_clipboard");
+      break;
+    case GTK_IM_CONTEXT_CLIPBOARD_OP_PASTE:
+      g_signal_emit_by_name (text_view, "paste_clipboard");
+      break;
+    }
+}
+
+#endif /* MAEMO_CHANGES */
+
 static void
 gtk_text_view_mark_set_handler (GtkTextBuffer     *buffer,
                                 const GtkTextIter *location,
@@ -7595,8 +7958,10 @@ gtk_text_view_mark_set_handler (GtkTextBuffer     *buffer,
       need_reset = TRUE;
     }
 
+#ifndef MAEMO_CHANGES /* FIXME HACK */
   if (need_reset)
     gtk_text_view_reset_im_context (text_view);
+#endif /* !MAEMO_CHANGES */
 }
 
 static void
@@ -9318,6 +9683,254 @@ gtk_text_view_move_visually (GtkTextView *text_view,
 
   return gtk_text_layout_move_iter_visually (text_view->layout, iter, count);
 }
+
+#ifdef MAEMO_CHANGES
+
+/**
+ * hildon_gtk_text_view_set_input_mode:
+ * @text_view: a #GtkTextView
+ * @mode: a #HildonGtkInputMode
+ *
+ * Sets input mode of the widget.
+ *
+ * Since: maemo 2.0
+ * Stability: Unstable
+ */
+void
+hildon_gtk_text_view_set_input_mode (GtkTextView       *text_view,
+                                     HildonGtkInputMode mode)
+{
+  g_return_if_fail (GTK_IS_TEXT_VIEW (text_view));
+
+  if (hildon_gtk_text_view_get_input_mode (text_view) != mode)
+    {
+      g_object_set (G_OBJECT (text_view->im_context),
+                    "hildon-input-mode", mode, NULL);
+      g_object_notify (G_OBJECT (text_view), "hildon-input-mode");
+  }
+}
+
+/**
+ * hildon_gtk_text_view_get_input_mode:
+ * @text_view: a #GtkTextView
+ *
+ * Gets input mode of the widget.
+ *
+ * Return value: the input mode of the widget.
+ *
+ * Since: maemo 2.0
+ * Stability: Unstable
+ */
+HildonGtkInputMode
+hildon_gtk_text_view_get_input_mode (GtkTextView *text_view)
+{
+  HildonGtkInputMode mode;
+
+  g_return_val_if_fail (GTK_IS_TEXT_VIEW (text_view), FALSE);
+
+  g_object_get (G_OBJECT (text_view->im_context),
+                "hildon-input-mode", &mode, NULL);
+
+  return mode;
+}
+
+/**
+ * hildon_gtk_text_view_set_input_default:
+ * @text_view: a #GtkTextView
+ * @mode: a #HildonGtkInputMode
+ *
+ * Sets the default input mode of the widget.
+ *
+ * Since: maemo 5.0
+ */
+void
+hildon_gtk_text_view_set_input_default (GtkTextView       *text_view,
+                                        HildonGtkInputMode mode)
+{
+  g_return_if_fail (GTK_IS_TEXT_VIEW (text_view));
+
+  if (hildon_gtk_text_view_get_input_default (text_view) != mode)
+    {
+      g_object_set (G_OBJECT (text_view->im_context),
+                    "hildon-input-default", mode, NULL);
+      g_object_notify (G_OBJECT (text_view), "hildon-input-default");
+    }
+}
+
+/**
+ * hildon_gtk_text_view_get_input_default:
+ * @text_view: a #GtkTextView
+ *
+ * Gets the default input mode of the widget.
+ *
+ * Return value: the default input mode of the widget.
+ *
+ * Since: maemo 5
+ */
+HildonGtkInputMode
+hildon_gtk_text_view_get_input_default (GtkTextView *text_view)
+{
+  HildonGtkInputMode mode;
+
+  g_return_val_if_fail (GTK_IS_TEXT_VIEW (text_view), FALSE);
+
+  g_object_get (G_OBJECT (text_view->im_context),
+                "hildon-input-default", &mode, NULL);
+
+  return mode;
+}
+
+
+/* This is more or less a stripped down version of
+ * gtk_text_view_ensure_layout().
+ */
+static void
+gtk_text_view_ensure_placeholder_layout (GtkTextView *text_view)
+{
+  GtkTextViewPrivate *priv;
+
+  priv = GTK_TEXT_VIEW_GET_PRIVATE (text_view);
+
+  if (priv->placeholder_layout == NULL)
+    {
+      GdkColor font_color;
+      GtkTextAttributes *style;
+      PangoContext *ltr_context, *rtl_context;
+      GtkWidget *widget = GTK_WIDGET (text_view);
+
+      priv->placeholder_layout = gtk_text_layout_new ();
+      gtk_text_layout_set_buffer (priv->placeholder_layout,
+                                  priv->placeholder_buffer);
+
+      gtk_text_layout_set_cursor_visible (priv->placeholder_layout,
+                                          FALSE);
+
+      ltr_context = gtk_widget_create_pango_context (GTK_WIDGET (text_view));
+      pango_context_set_base_dir (ltr_context, PANGO_DIRECTION_LTR);
+      rtl_context = gtk_widget_create_pango_context (GTK_WIDGET (text_view));
+      pango_context_set_base_dir (rtl_context, PANGO_DIRECTION_RTL);
+
+      gtk_text_layout_set_contexts (priv->placeholder_layout,
+                                    ltr_context, rtl_context);
+
+      g_object_unref (ltr_context);
+      g_object_unref (rtl_context);
+
+
+      style = gtk_text_attributes_new ();
+
+      gtk_widget_ensure_style (widget);
+      gtk_text_view_set_attributes_from_style (text_view,
+                                               style, widget->style);
+
+      /* Override the color setting */
+      if (gtk_style_lookup_color (widget->style, "ReversedSecondaryTextColor",
+                                  &font_color))
+        {
+          style->appearance.fg_color = font_color;
+        }
+
+      style->pixels_above_lines = text_view->pixels_above_lines;
+      style->pixels_below_lines = text_view->pixels_below_lines;
+      style->pixels_inside_wrap = text_view->pixels_inside_wrap;
+      style->left_margin = text_view->left_margin;
+      style->right_margin = text_view->right_margin;
+      style->indent = text_view->indent;
+      style->tabs = text_view->tabs ? pango_tab_array_copy (text_view->tabs) : NULL;
+
+      style->wrap_mode = text_view->wrap_mode;
+      style->justification = text_view->justify;
+      style->direction = gtk_widget_get_direction (GTK_WIDGET (text_view));
+
+      gtk_text_layout_set_default_style (priv->placeholder_layout, style);
+
+      gtk_text_attributes_unref (style);
+    }
+
+  /* Now make sure the layout is validated.  Since we expect the
+   * placeholder to only be a single line, this should be quick.
+   */
+  gtk_text_layout_validate (priv->placeholder_layout, 2000);
+}
+
+/**
+ * hildon_gtk_text_view_set_placeholder_text:
+ * @text_view: a #GtkTextView.
+ * @placeholder_text: a string to be displayed when @text_view is empty
+ * and unfocused or %NULL to remove current placeholder text.
+ *
+ * Sets a text string to be displayed when @entry is empty and unfocused.
+ * This can be provided to give a visual hint of the expected contents
+ * of the #GtkEntry.
+ *
+ * Since: maemo 5.
+ */
+void
+hildon_gtk_text_view_set_placeholder_text (GtkTextView *text_view,
+                                           const gchar *placeholder_text)
+{
+  GtkTextViewPrivate *priv;
+
+  g_return_if_fail (GTK_IS_TEXT_VIEW (text_view));
+
+  priv = GTK_TEXT_VIEW_GET_PRIVATE (text_view);
+
+  if (!priv->placeholder_buffer)
+    priv->placeholder_buffer = gtk_text_buffer_new (NULL);
+
+  if (placeholder_text)
+    {
+      gtk_text_buffer_set_text (priv->placeholder_buffer, placeholder_text, -1);
+      gtk_text_view_ensure_placeholder_layout (text_view);
+    }
+  else
+    {
+      g_object_unref (priv->placeholder_layout);
+      priv->placeholder_layout = NULL;
+
+      g_object_unref (priv->placeholder_buffer);
+      priv->placeholder_buffer = NULL;
+    }
+
+  if (gtk_text_buffer_get_char_count (get_buffer (text_view)) == 0
+      && !gtk_widget_has_focus (GTK_WIDGET (text_view)))
+    gtk_widget_queue_draw (GTK_WIDGET (text_view));
+
+  g_object_notify (G_OBJECT (text_view), "hildon-placeholder-text");
+}
+
+/**
+ * hildon_gtk_text_view_get_placeholder_text:
+ * @text_view: a #GtkTextView
+ *
+ * Gets the text to be displayed if @text_view is empty and unfocused.
+ * The returned string must be freed using g_free().
+ *
+ * Returns: an allocated string or %NULL if no placeholder text is set.
+ *
+ * Since: maemo 5.
+ */
+gchar *
+hildon_gtk_text_view_get_placeholder_text (GtkTextView *text_view)
+{
+  GtkTextViewPrivate *priv;
+  GtkTextIter start, end;
+  gchar *text;
+
+  g_return_val_if_fail (GTK_IS_TEXT_VIEW (text_view), NULL);
+
+  priv = GTK_TEXT_VIEW_GET_PRIVATE (text_view);
+
+  gtk_text_buffer_get_start_iter (priv->placeholder_buffer, &start);
+  gtk_text_buffer_get_end_iter (priv->placeholder_buffer, &end);
+
+  text = gtk_text_buffer_get_text (priv->placeholder_buffer,
+                                   &start, &end, FALSE);
+
+  return text;
+}
+
+#endif /* MAEMO_CHANGES */
 
 #define __GTK_TEXT_VIEW_C__
 #include "gtkaliasdef.c"

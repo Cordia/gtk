@@ -510,3 +510,11 @@ The value can by obtained by connecting to the
 @GTK_DRAG_RESULT_ERROR: The drag operation failed due to some 
    unspecified error
 
+<!-- ##### ENUM GtkInvalidInputType ##### -->
+<para>
+Reason why the "invalid-input" signal was emitted.
+</para>
+
+@GTK_INVALID_INPUT_MAX_CHARS_REACHED: Text exceeds the maximum allowed length for the widget.
+@GTK_INVALID_INPUT_MODE_RESTRICTION: Text contains characters forbidden in the selected #HildonGtkInputMode
+

@@ -839,7 +839,11 @@ gtk_file_chooser_class_init (gpointer g_iface)
 							     P_("Whether a file chooser in save mode "
 								"will present an overwrite confirmation dialog "
 								"if necessary."),
+#ifdef MAEMO_CHANGES
+                                                             TRUE,
+#else
 							     FALSE,
+#endif
 							     GTK_PARAM_READWRITE));
 
   /**

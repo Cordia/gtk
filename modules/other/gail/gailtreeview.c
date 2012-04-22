@@ -752,6 +752,9 @@ gail_tree_view_get_n_children (AtkObject *obj)
   GtkTreeView *tree_view;
   GtkTreeModel *tree_model;
   gint n_rows, n_cols;
+#ifdef MAEMO_CHANGES
+  gint extra;
+#endif
 
   gail_return_val_if_fail (GAIL_IS_TREE_VIEW (obj), 0);
 
@@ -765,6 +768,18 @@ gail_tree_view_get_n_children (AtkObject *obj)
   tree_view = GTK_TREE_VIEW (widget);
   tree_model = gtk_tree_view_get_model (tree_view);
 
+#ifdef MAEMO_CHANGES
+  /* On maemo: we get the action area */
+  if (hildon_tree_view_get_action_area_box (tree_view))
+    {
+      extra = 1;
+    }
+  else
+    {
+      extra = 0;
+    }
+#endif
+
   /*
    * We get the total number of rows including those which are collapsed
    */
@@ -773,7 +788,11 @@ gail_tree_view_get_n_children (AtkObject *obj)
    * We get the total number of columns including those which are not visible
    */
   n_cols = get_n_actual_columns (tree_view);
+#ifdef MAEMO_CHANGES
+  return (n_rows * n_cols) +  extra;
+#else
   return (n_rows * n_cols);
+#endif
 }
 
 static AtkObject*
@@ -802,6 +821,7 @@ gail_tree_view_ref_child (AtkObject *obj,
   gboolean is_expander, is_expanded, retval;
   gboolean editable = FALSE;
   gint focus_index;
+  GtkWidget *action_area = NULL;
 
   g_return_val_if_fail (GAIL_IS_TREE_VIEW (obj), NULL);
   g_return_val_if_fail (i >= 0, NULL);
@@ -817,6 +837,20 @@ gail_tree_view_ref_child (AtkObject *obj,
     return NULL;
 
   tree_view = GTK_TREE_VIEW (widget);
+
+#ifdef MAEMO_CHANGES
+  if (i == 0)
+    {
+      action_area = hildon_tree_view_get_action_area_box (tree_view);
+      child = gtk_widget_get_accessible (action_area);
+      if (child)
+        g_object_ref (child);
+      return child;
+    }
+
+  i--;
+#endif
+
   if (i < get_n_actual_columns (tree_view))
     {
       tv_col = gtk_tree_view_get_column (tree_view, i);

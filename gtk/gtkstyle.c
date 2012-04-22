@@ -7108,13 +7108,19 @@ draw_insertion_cursor (GtkWidget          *widget,
   gint i;
   gfloat cursor_aspect_ratio;
   gint offset;
+#ifdef MAEMO_CHANGES
+  gint window_width;
+  GdkRectangle my_location;
+
+  my_location = *location;
+#endif
   
   /* When changing the shape or size of the cursor here,
    * propagate the changes to gtktextview.c:text_window_invalidate_cursors().
    */
 
   gtk_widget_style_get (widget, "cursor-aspect-ratio", &cursor_aspect_ratio, NULL);
-  
+
   stem_width = location->height * cursor_aspect_ratio + 1;
   arrow_width = stem_width + 1;
 
@@ -7124,18 +7130,37 @@ draw_insertion_cursor (GtkWidget          *widget,
   else
     offset = stem_width - stem_width / 2;
   
+#ifdef MAEMO_CHANGES
+  gdk_drawable_get_size (widget->window, &window_width, NULL);
+
+  if (my_location.x - offset < 0 && direction == GTK_TEXT_DIR_LTR)
+    my_location.x += ABS (my_location.x - offset);
+  else if (my_location.x + offset > window_width && direction == GTK_TEXT_DIR_RTL)
+    my_location.x -= my_location.x + offset - window_width;
+#endif
+
   for (i = 0; i < stem_width; i++)
     gdk_draw_line (drawable, gc,
+#ifdef MAEMO_CHANGES
+		   my_location.x + i - offset, my_location.y,
+		   my_location.x + i - offset, my_location.y + my_location.height - 1);
+#else
 		   location->x + i - offset, location->y,
 		   location->x + i - offset, location->y + location->height - 1);
+#endif
 
   if (draw_arrow)
     {
       if (direction == GTK_TEXT_DIR_RTL)
         {
+#ifdef MAEMO_CHANGES
+          x = my_location.x - offset - 1;
+          y = my_location.y + my_location.height - arrow_width * 2 - arrow_width + 1;
+#else
           x = location->x - offset - 1;
           y = location->y + location->height - arrow_width * 2 - arrow_width + 1;
-  
+#endif
+
           for (i = 0; i < arrow_width; i++)
             {
               gdk_draw_line (drawable, gc,
@@ -7146,9 +7171,14 @@ draw_insertion_cursor (GtkWidget          *widget,
         }
       else if (direction == GTK_TEXT_DIR_LTR)
         {
+#ifdef MAEMO_CHANGES
+          x = my_location.x + stem_width - offset;
+          y = my_location.y + my_location.height - arrow_width * 2 - arrow_width + 1;
+#else
           x = location->x + stem_width - offset;
           y = location->y + location->height - arrow_width * 2 - arrow_width + 1;
-  
+#endif
+
           for (i = 0; i < arrow_width; i++) 
             {
               gdk_draw_line (drawable, gc,
@@ -7204,6 +7234,17 @@ gtk_draw_insertion_cursor (GtkWidget          *widget,
   if (area)
     gdk_gc_set_clip_rectangle (gc, NULL);
 }
+
+#ifdef MAEMO_CHANGES
+
+gboolean  gtk_style_lookup_logical_color     (GtkStyle     *style,
+                                              const gchar  *color_name,
+                                              GdkColor     *color)
+{
+  return gtk_style_lookup_color (style, color_name, color);
+}
+
+#endif /* MAEMO_CHANGES */
 
 #define __GTK_STYLE_C__
 #include "gtkaliasdef.c"

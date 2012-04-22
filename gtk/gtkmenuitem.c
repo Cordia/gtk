@@ -1263,18 +1263,32 @@ gtk_menu_item_paint (GtkWidget    *widget,
 	  arrow_extent = arrow_size * arrow_scaling;
 
 	  shadow_type = GTK_SHADOW_OUT;
+#ifdef MAEMO_CHANGES
+	  if (state_type == GTK_STATE_PRELIGHT &&
+              gtk_widget_get_visible (menu_item->submenu))
+	    shadow_type = GTK_SHADOW_IN;
+#else
 	  if (state_type == GTK_STATE_PRELIGHT)
 	    shadow_type = GTK_SHADOW_IN;
+#endif /* MAEMO_CHANGES */
 
 	  if (direction == GTK_TEXT_DIR_LTR)
 	    {
 	      arrow_x = x + width - horizontal_padding - arrow_extent;
 	      arrow_type = GTK_ARROW_RIGHT;
+
+#ifdef MAEMO_CHANGES
+              arrow_x -= widget->style->xthickness;
+#endif /* MAEMO_CHANGES */
 	    }
 	  else
 	    {
 	      arrow_x = x + horizontal_padding;
 	      arrow_type = GTK_ARROW_LEFT;
+
+#ifdef MAEMO_CHANGES
+              arrow_x += widget->style->xthickness;
+#endif /* MAEMO_CHANGES */
 	    }
 
 	  arrow_y = y + (height - arrow_extent) / 2;

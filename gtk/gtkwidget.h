@@ -98,6 +98,17 @@ G_BEGIN_DECLS
  *
  * Tells about certain properties of the widget.
  */
+
+#ifdef MAEMO_CHANGES
+typedef enum
+{
+  GTK_TAP_AND_HOLD_NONE         = 0,
+  GTK_TAP_AND_HOLD_PASS_PRESS   = 1 << 0,
+  GTK_TAP_AND_HOLD_NO_SIGNALS   = 1 << 1,
+  GTK_TAP_AND_HOLD_NO_INTERNALS = 1 << 2
+} GtkWidgetTapAndHoldFlags;
+#endif /* MAEMO_CHANGES */
+
 typedef enum
 {
   GTK_TOPLEVEL         = 1 << 4,
@@ -1345,6 +1356,24 @@ GdkColormap* _gtk_widget_peek_colormap (void);
 void         _gtk_widget_buildable_finish_accelerator (GtkWidget *widget,
 						       GtkWidget *toplevel,
 						       gpointer   user_data);
+
+
+#ifdef MAEMO_CHANGES
+void gtk_widget_tap_and_hold_menu_position_top (GtkWidget                *menu,
+						gint                     *x,
+						gint                     *y,
+						gboolean                 *push_in,
+						GtkWidget                *widget);
+void gtk_widget_tap_and_hold_setup	       (GtkWidget                *widget,
+						GtkWidget                *menu,
+						GtkCallback               func,
+						GtkWidgetTapAndHoldFlags  flags);
+
+void gtk_widget_insensitive_press ( GtkWidget *widget );
+
+void hildon_gtk_widget_set_theme_size           (GtkWidget      *widget,
+                                                 HildonSizeType  size);
+#endif /* MAEMO_CHANGES */
 
 G_END_DECLS
 

@@ -531,12 +531,29 @@ gtk_radio_button_focus (GtkWidget         *widget,
 	  break;
 	case GTK_DIR_TAB_FORWARD:
 	case GTK_DIR_TAB_BACKWARD:
+#ifdef MAEMO_CHANGES
+          /* We have remapped cursor keys to TAB movements in our rc files, so we'll get
+             TAB_{FORWARD,BACKWARD} instead of DOWN/UP here. For GtkRadioButton, though,
+             we need to re-enable the old behavior or navigation within the group would be
+             impossible */
+          if (cursor_only)
+            {
+              focus_list = g_slist_copy (radio_button->group);
+              focus_list = g_slist_sort_with_data (focus_list, up_down_compare, toplevel);
+              break;
+            }
+#endif /* MAEMO_CHANGES */
           /* fall through */
         default:
 	  return FALSE;
 	}
 
+#ifdef MAEMO_CHANGES
+      if (direction == GTK_DIR_LEFT || direction == GTK_DIR_UP ||
+          (cursor_only && direction == GTK_DIR_TAB_BACKWARD))
+#else
       if (direction == GTK_DIR_LEFT || direction == GTK_DIR_UP)
+#endif /* MAEMO_CHANGES */
 	focus_list = g_slist_reverse (focus_list);
 
       tmp_list = g_slist_find (focus_list, widget);

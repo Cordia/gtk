@@ -679,6 +679,9 @@ void       gdk_window_thaw_updates        (GdkWindow    *window);
 
 void       gdk_window_freeze_toplevel_updates_libgtk_only (GdkWindow *window);
 void       gdk_window_thaw_toplevel_updates_libgtk_only   (GdkWindow *window);
+#ifdef MAEMO_CHANGES
+void       gdk_window_reset_toplevel_updates_libgtk_only  (GdkWindow *window);
+#endif /* MAEMO_CHANGES */
 
 void       gdk_window_process_all_updates (void);
 void       gdk_window_process_updates     (GdkWindow    *window,

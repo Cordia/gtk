@@ -851,7 +851,11 @@ gtk_tree_view_column_create_button (GtkTreeViewColumn *tree_column)
 		    G_CALLBACK (gtk_tree_view_column_button_clicked),
 		    tree_column);
 
+#ifdef MAEMO_CHANGES
+  tree_column->alignment = gtk_alignment_new (tree_column->xalign, 0.5, 1.0, 1.0);
+#else /* !MAEMO_CHANGES */
   tree_column->alignment = gtk_alignment_new (tree_column->xalign, 0.5, 0.0, 0.0);
+#endif /* !MAEMO_CHANGES */
 
   hbox = gtk_hbox_new (FALSE, 2);
   tree_column->arrow = gtk_arrow_new (GTK_ARROW_DOWN, GTK_SHADOW_IN);
@@ -916,7 +920,11 @@ gtk_tree_view_column_update_button (GtkTreeViewColumn *tree_column)
 
   /* Set up the actual button */
   gtk_alignment_set (GTK_ALIGNMENT (alignment), tree_column->xalign,
+#ifdef MAEMO_CHANGES
+		     0.5, 1.0, 1.0);
+#else /* !MAEMO_CHANGES */
 		     0.5, 0.0, 0.0);
+#endif /* !MAEMO_CHANGES */
       
   if (tree_column->child)
     {
@@ -926,6 +934,9 @@ gtk_tree_view_column_update_button (GtkTreeViewColumn *tree_column)
 				current_child);
 	  gtk_container_add (GTK_CONTAINER (alignment),
 			     tree_column->child);
+#ifdef MAEMO_CHANGES
+	  current_child = tree_column->child;
+#endif /* MAEMO_CHANGES */
 	}
     }
   else 
@@ -947,6 +958,16 @@ gtk_tree_view_column_update_button (GtkTreeViewColumn *tree_column)
 	gtk_label_set_text_with_mnemonic (GTK_LABEL (current_child),
 					  "");
     }
+
+#ifdef MAEMO_CHANGES
+  if (GTK_IS_MISC (current_child))
+    {
+      gfloat yalign;
+
+      gtk_misc_get_alignment (GTK_MISC (current_child), NULL, &yalign);
+      gtk_misc_set_alignment (GTK_MISC (current_child), tree_column->xalign, yalign);
+    }
+#endif /* MAEMO_CHANGES */
 
   if (GTK_IS_TREE_SORTABLE (model))
     gtk_tree_sortable_get_sort_column_id (GTK_TREE_SORTABLE (model),
@@ -2535,6 +2556,102 @@ gtk_tree_view_column_get_sort_order      (GtkTreeViewColumn     *tree_column)
   return tree_column->sort_order;
 }
 
+#ifdef MAEMO_CHANGES
+/**
+ * gtk_tree_view_column_cell_set_cell_data_with_hint:
+ * @tree_column: A #GtkTreeViewColumn.
+ * @tree_model: The #GtkTreeModel to to get the cell renderers attributes from.
+ * @iter: The #GtkTreeIter to to get the cell renderer's attributes from.
+ * @is_expander: %TRUE, if the row has children
+ * @is_expanded: %TRUE, if the row has visible children
+ * @hint: A #GtkTreeCellDataHint for the #GtkTreeCellDataFunc.
+ * 
+ * Sets the cell renderer based on the @tree_model and @iter.  That is, for
+ * every attribute mapping in @tree_column, it will get a value from the set
+ * column on the @iter, and use that value to set the attribute on the cell
+ * renderer.  The @hint is a hint for the #GtkTreeCellDataFunc so that it does not
+ * have to set all cell renderer properties, possible leading to some
+ * optimizations.  This is used primarily by the #GtkTreeView.
+ *
+ * Since: maemo 4.0
+ * Stability: Unstable
+ **/
+void
+gtk_tree_view_column_cell_set_cell_data_with_hint (GtkTreeViewColumn   *tree_column,
+                                                   GtkTreeModel        *tree_model,
+                                                   GtkTreeIter         *iter,
+                                                   gboolean             is_expander,
+                                                   gboolean             is_expanded,
+                                                   GtkTreeCellDataHint  hint)
+{
+  GSList *list;
+  GValue value = { 0, };
+  GList *cell_list;
+
+  g_return_if_fail (GTK_IS_TREE_VIEW_COLUMN (tree_column));
+
+  if (tree_model == NULL)
+    return;
+
+  GTK_TREE_VIEW (tree_column->tree_view)->priv->cell_data_hint = hint;
+
+  for (cell_list = tree_column->cell_list; cell_list; cell_list = cell_list->next)
+    {
+      GtkTreeViewColumnCellInfo *info = (GtkTreeViewColumnCellInfo *) cell_list->data;
+      GObject *cell = (GObject *) info->cell;
+
+      list = info->attributes;
+
+      g_object_freeze_notify (cell);
+
+      if (info->cell->is_expander != is_expander)
+	g_object_set (cell, "is-expander", is_expander, NULL);
+
+      if (info->cell->is_expanded != is_expanded)
+	g_object_set (cell, "is-expanded", is_expanded, NULL);
+
+      while (list && list->next)
+	{
+	  gtk_tree_model_get_value (tree_model, iter,
+				    GPOINTER_TO_INT (list->next->data),
+				    &value);
+	  g_object_set_property (cell, (gchar *) list->data, &value);
+	  g_value_unset (&value);
+	  list = list->next->next;
+	}
+
+      if (info->func)
+	(* info->func) (tree_column, info->cell, tree_model, iter, info->func_data);
+      g_object_thaw_notify (G_OBJECT (info->cell));
+    }
+}
+
+/**
+ * gtk_tree_view_column_get_cell_data_hint:
+ * @tree_column: A #GtkTreeViewColumn.
+ *
+ * Returns the current value of the cell data hint as a
+ * #GtkTreeCellDataHint.  Note that the value returned is only
+ * valid when called from a #GtkTreeCellDataFunc.  The value of the hint
+ * tells you why the #GtkTreeView is calling the #GtkTreeCellDataFunc.
+ * Based on this hint, you can omit to generate the data and set certain
+ * cell renderer properties to improve performance.
+ *
+ * Return value: A #GtkTreeCellDataHint with the hint.
+ *
+ * Since: maemo 4.0
+ * Stability: Unstable
+ */
+GtkTreeCellDataHint
+gtk_tree_view_column_get_cell_data_hint (GtkTreeViewColumn *tree_column)
+{
+  g_return_val_if_fail (GTK_IS_TREE_VIEW_COLUMN (tree_column), 0);
+  g_return_val_if_fail (GTK_IS_TREE_VIEW (tree_column->tree_view), 0);
+
+  return GTK_TREE_VIEW (tree_column->tree_view)->priv->cell_data_hint;
+}
+#endif /* MAEMO_CHANGES */
+
 /**
  * gtk_tree_view_column_cell_set_cell_data:
  * @tree_column: A #GtkTreeViewColumn.
@@ -2563,6 +2680,10 @@ gtk_tree_view_column_cell_set_cell_data (GtkTreeViewColumn *tree_column,
 
   if (tree_model == NULL)
     return;
+
+#ifdef MAEMO_CHANGES
+  GTK_TREE_VIEW (tree_column->tree_view)->priv->cell_data_hint = GTK_TREE_CELL_DATA_HINT_ALL;
+#endif /* MAEMO_CHANGES */
 
   for (cell_list = tree_column->cell_list; cell_list; cell_list = cell_list->next)
     {

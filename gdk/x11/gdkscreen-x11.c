@@ -1171,9 +1171,56 @@ _gdk_x11_screen_size_changed (GdkScreen *screen,
 #ifdef HAVE_RANDR
   GdkDisplayX11 *display_x11;
 #endif
+#ifdef MAEMO_CHANGES
+  GdkDisplay *display;
+  GdkWindow *window;
+  gint32 *maemo_screen_size = NULL;
+#endif /* MAEMO_CHANGES */
 
   width = gdk_screen_get_width (screen);
   height = gdk_screen_get_height (screen);
+
+#ifdef MAEMO_CHANGES
+  /* The _MAEMO_SCREEN_SIZE property allows hildon-desktop to
+   * resize/relayout applications to the correct orientation before
+   * XRandR rotation actually happens.
+   */
+
+  if (GDK_SCREEN_X11 (screen)->wmspec_check_window == None)
+    goto fallback;
+
+  display = gdk_screen_get_display (screen);
+  if (!(window = gdk_window_lookup_for_display (display,
+                          GDK_SCREEN_X11 (screen)->wmspec_check_window)))
+    goto fallback;
+
+  if (gdk_property_get (window,
+                    gdk_atom_intern_static_string ("_MAEMO_SCREEN_SIZE"),
+                    gdk_atom_intern ("CARDINAL", FALSE),
+                    0, 8, FALSE, 0, 0, 0, (guchar **) &maemo_screen_size))
+    {
+      gdouble prop_width, prop_height;
+
+      prop_width = maemo_screen_size[0];
+      prop_height = maemo_screen_size[1];
+
+      if (prop_width != width || prop_height != height)
+        {
+          Screen *xscreen = gdk_x11_screen_get_xscreen (screen);
+          xscreen->width = prop_width;
+          xscreen->height = prop_height;
+          xscreen->mwidth = (prop_width / GDK_SCREEN_X11 (screen)->xft_dpi) * 25.4;
+          xscreen->mheight = (prop_height / GDK_SCREEN_X11 (screen)->xft_dpi) * 25.4;
+
+          goto exit;
+        }
+
+      g_free (maemo_screen_size);
+      /* Ignore XRandR */
+      return;
+    }
+fallback:
+#endif /* MAEMO_CHANGES */
 
 #ifdef HAVE_RANDR
   display_x11 = GDK_DISPLAY_X11 (gdk_screen_get_display (screen));
@@ -1195,6 +1242,7 @@ _gdk_x11_screen_size_changed (GdkScreen *screen,
     return;
 #endif
 
+exit:
   process_monitors_change (screen);
 
   if (width != gdk_screen_get_width (screen) ||

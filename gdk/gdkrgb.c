@@ -1468,6 +1468,13 @@ gdk_rgb_convert_gray8_gray (GdkRgbInfo *image_info, GdkImage *image,
 #define HAIRY_CONVERT_565
 #endif
 
+#ifdef MAEMO_CHANGES
+void
+gdk_composite_src_0888_0565_rev_asm_neon (int width, int height,
+					  void *dst, int dst_stride,
+					  void *src, int src_stride);
+#endif /* MAEMO_CHANGES */
+
 #ifdef HAIRY_CONVERT_565
 /* Render a 24-bit RGB image in buf into the GdkImage, without dithering.
    This assumes native byte ordering - what should really be done is to
@@ -1492,6 +1499,18 @@ gdk_rgb_convert_565 (GdkRgbInfo *image_info, GdkImage *image,
   bptr = buf;
   bpl = image->bpl;
   obuf = ((guchar *)image->mem) + y0 * bpl + x0 * 2;
+
+#ifdef MAEMO_CHANGES
+#ifdef __ARM_ARCH_7A__
+  if ((bpl & 1) == 0)
+    {
+      gdk_composite_src_0888_0565_rev_asm_neon (width, height,
+						obuf, bpl >> 1,
+						buf, rowstride);
+      return;
+    }
+#endif
+#endif /* MAEMO_CHANGES */
   for (y = 0; y < height; y++)
     {
       bp2 = bptr;

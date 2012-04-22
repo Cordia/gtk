@@ -93,4 +93,14 @@ TEST_PROGS			+= action
 action_SOURCES			 = action.c
 action_LDADD			 = $(progs_ldadd)
 
+if MAEMO_CHANGES
+TEST_PROGS			+= treeview-hildon
+treeview_hildon_SOURCES		 = treeview-hildon.c
+treeview_hildon_LDADD		 = $(progs_ldadd)
+
+TEST_PROGS			+= iconview-hildon
+iconview_hildon_SOURCES		 = iconview-hildon.c
+iconview_hildon_LDADD		 = $(progs_ldadd)
+endif
+
 -include $(top_srcdir)/git.mk

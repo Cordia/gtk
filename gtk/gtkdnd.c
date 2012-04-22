@@ -2326,7 +2326,12 @@ gtk_drag_begin_internal (GtkWidget         *widget,
   GdkDragContext *context;
   GtkWidget *ipc_widget;
   GdkCursor *cursor;
- 
+
+#ifdef MAEMO_CHANGES
+  /* Reject any DND requests unconditionally. */
+  return NULL;
+#endif
+
   ipc_widget = gtk_drag_get_ipc_widget (widget);
   
   gtk_drag_get_event_actions (event, button, actions,

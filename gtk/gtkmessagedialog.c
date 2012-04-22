@@ -111,6 +111,9 @@ struct _GtkMessageDialogPrivate
 
 static void gtk_message_dialog_style_set  (GtkWidget             *widget,
                                            GtkStyle              *prev_style);
+#ifdef MAEMO_CHANGES
+static void gtk_message_dialog_realize    (GtkWidget             *widget);
+#endif /* MAEMO_CHANGES */
 
 static void gtk_message_dialog_set_property (GObject          *object,
 					     guint             prop_id,
@@ -177,6 +180,9 @@ gtk_message_dialog_class_init (GtkMessageDialogClass *class)
   gobject_class = G_OBJECT_CLASS (class);
   
   widget_class->style_set = gtk_message_dialog_style_set;
+#ifdef MAEMO_CHANGES
+  widget_class->realize = gtk_message_dialog_realize;
+#endif /* MAEMO_CHANGES */
 
   gobject_class->set_property = gtk_message_dialog_set_property;
   gobject_class->get_property = gtk_message_dialog_get_property;
@@ -1039,6 +1045,25 @@ gtk_message_dialog_style_set (GtkWidget *widget,
 
   GTK_WIDGET_CLASS (gtk_message_dialog_parent_class)->style_set (widget, prev_style);
 }
+
+#ifdef MAEMO_CHANGES
+static void
+gtk_message_dialog_realize (GtkWidget *widget)
+{
+  const gchar *title;
+
+  if (GTK_WIDGET_CLASS (gtk_message_dialog_parent_class)->realize)
+    (GTK_WIDGET_CLASS (gtk_message_dialog_parent_class)->realize) (widget);
+
+  title = gtk_window_get_title (GTK_WINDOW (widget));
+
+  /* HIG says no title, not resizable, no window commands.
+   * But if someone set the title anyway, show it.
+   */
+  if (title == NULL || *title == '\0')
+    gdk_window_set_decorations (widget->window, GDK_DECOR_BORDER);
+}
+#endif /* MAEMO_CHANGES */
 
 #define __GTK_MESSAGE_DIALOG_C__
 #include "gtkaliasdef.c"
